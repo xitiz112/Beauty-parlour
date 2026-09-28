@@ -1,6 +1,6 @@
 # Liora Beauty Studio
 
-Full-stack Next.js site for the Jhamsikhel studio, with PostgreSQL bookings and a staff desk.
+An aesthetic website for Liora Beauty Studio in Jhamsikhel, designed to turn visitors into customers. Includes PostgreSQL-backed bookings and a staff desk.
 
 ## Run locally
 
