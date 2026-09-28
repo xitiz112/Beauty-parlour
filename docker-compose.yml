@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: liora
+      POSTGRES_PASSWORD: liora
+      POSTGRES_DB: liora
+    ports:
+      - "5434:5432"
+    volumes:
+      - liora_pg:/var/lib/postgresql/data
+
+volumes:
+  liora_pg:

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gallery — Liora Beauty Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/interact.css" />
+  </head>
+  <body data-page="gallery">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" id="site-header"></header>
+    <main id="main" class="container">
+      <section class="page-hero">
+        <p class="eyebrow">Gallery</p>
+        <h1>Looks from the chair.</h1>
+      </section>
+      <section class="price-block" id="gallery-full"></section>
+    </main>
+    <footer class="site-footer" id="site-footer"></footer>
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Gallery image">
+      <button type="button" id="lightbox-close" aria-label="Close">×</button>
+      <div>
+        <img id="lightbox-image" alt="" />
+        <p class="lightbox-caption" id="lightbox-caption"></p>
+      </div>
+    </div>
+    <script src="js/salon-data.js"></script>
+    <script src="js/layout.js"></script>
+    <script>
+      const grid = document.getElementById("gallery-full");
+      grid.className = "gallery-grid";
+      grid.innerHTML = window.SALON.gallery
+        .map(function (item) {
+          return `
+            <button class="gallery-item" type="button" data-lightbox="${item.image.replace("w=900", "w=1400")}" data-caption="${item.caption}">
+              <img src="${item.image}" alt="${item.caption}" />
+              <span class="caption">${item.caption}</span>
+              <span class="view-dot">View</span>
+            </button>
+          `;
+        })
+        .join("");
+    </script>
+    <script src="js/main.js"></script>
+    <script src="js/interact.js"></script>
+  </body>
+</html>

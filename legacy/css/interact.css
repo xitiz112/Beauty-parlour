@@ -1,0 +1,452 @@
+/* Interactive layer — buttons, cards, cursor, reveals */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  z-index: 60;
+  background: linear-gradient(90deg, var(--blush), var(--gold));
+  pointer-events: none;
+}
+
+.cursor,
+.cursor-ring {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .has-fancy-cursor,
+  .has-fancy-cursor a,
+  .has-fancy-cursor button {
+    cursor: none;
+  }
+
+  .cursor,
+  .cursor-ring {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 90;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .cursor {
+    width: 8px;
+    height: 8px;
+    background: var(--blush);
+    mix-blend-mode: multiply;
+  }
+
+  .cursor-ring {
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(181, 101, 109, 0.55);
+    transition: width 0.25s ease, height 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+  }
+
+  .cursor-ring.is-hot {
+    width: 64px;
+    height: 64px;
+    background: rgba(181, 101, 109, 0.08);
+    border-color: var(--blush);
+  }
+}
+
+.btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 8px 20px rgba(181, 101, 109, 0.12);
+}
+
+.btn-primary,
+.btn-light,
+.btn-line,
+.btn-ghost {
+  transition:
+    color 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-primary::before {
+  background: linear-gradient(90deg, #7f3c45, #c48b7a);
+}
+
+.btn-line::before,
+.btn-light::before {
+  background: var(--ink);
+}
+
+.btn-ghost::before {
+  background: var(--white);
+}
+
+.btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px rgba(34, 28, 25, 0.14);
+}
+
+.btn-primary:hover,
+.btn-line:hover,
+.btn-light:hover {
+  color: var(--white);
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  color: var(--ink);
+}
+
+.btn:hover::before {
+  transform: scaleX(1);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.35);
+  transform: scale(0);
+  animation: ripple 0.7s ease-out;
+  pointer-events: none;
+}
+
+@keyframes ripple {
+  to {
+    transform: scale(14);
+    opacity: 0;
+  }
+}
+
+.text-link {
+  position: relative;
+}
+
+.text-link::after {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card,
+.team-card,
+.review,
+.gallery-item,
+.signature,
+.visit-card,
+.offer-banner,
+.form-card,
+.book-panel {
+  will-change: transform;
+}
+
+.card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s ease;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 253, 249, 0.28), transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.card:hover::after,
+.card.is-hot::after {
+  animation: sheen 0.9s ease;
+}
+
+@keyframes sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+.card:hover,
+.card.is-hot {
+  box-shadow: 0 28px 60px rgba(34, 28, 25, 0.16);
+}
+
+.card-media {
+  isolation: isolate;
+}
+
+.card-media img {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease;
+}
+
+.card:hover .card-media img {
+  transform: scale(1.1);
+  filter: saturate(1.08);
+}
+
+.card-explore {
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 2;
+  min-height: 38px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.card:hover .card-explore,
+.card:focus-within .card-explore,
+.card.is-hot .card-explore {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card.featured .card-explore {
+  background: var(--blush);
+}
+
+.team-card {
+  position: relative;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.team-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow);
+}
+
+.team-media {
+  position: relative;
+  overflow: hidden;
+}
+
+.team-media img,
+.team-card > img {
+  transition: transform 0.7s ease, filter 0.4s ease;
+}
+
+.team-card:hover img {
+  transform: scale(1.08);
+  filter: brightness(0.78);
+}
+
+.team-cta {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 2;
+  min-height: 40px;
+  padding-inline: 1rem;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.team-card:hover .team-cta,
+.team-card:focus-within .team-cta {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.gallery-item {
+  transform: none;
+}
+
+.gallery-item .view-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(250, 246, 240, 0.92);
+  color: var(--ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.gallery-item:hover .view-dot,
+.gallery-item:focus-visible .view-dot {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.review {
+  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.review:hover {
+  transform: translateY(-6px);
+  border-color: var(--gold);
+  box-shadow: var(--shadow);
+}
+
+.review:hover .stars {
+  animation: twinkle 0.8s ease;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    letter-spacing: 0.12em;
+  }
+  50% {
+    letter-spacing: 0.22em;
+    color: #d8b48a;
+  }
+}
+
+.signature img {
+  transition: transform 0.7s ease;
+}
+
+.signature:hover img {
+  transform: scale(1.04);
+}
+
+.offer-banner,
+.book-panel,
+.form-card,
+.visit-card {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.offer-banner:hover,
+.form-card:hover,
+.book-panel:hover,
+.visit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+.trust-item strong {
+  transition: transform 0.35s ease, color 0.35s ease;
+}
+
+.trust-item:hover strong {
+  transform: scale(1.06);
+  color: var(--blush-deep);
+}
+
+.hero-media img {
+  animation: kenburns 18s ease-in-out infinite alternate;
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.hero-meta span {
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.hero-meta span:hover {
+  background: rgba(255, 253, 249, 0.18);
+  transform: translateY(-2px);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.card-grid .card:nth-child(2) {
+  transition-delay: 0.05s;
+}
+.card-grid .card:nth-child(3) {
+  transition-delay: 0.1s;
+}
+.card-grid .card:nth-child(4) {
+  transition-delay: 0.15s;
+}
+.card-grid .card:nth-child(5) {
+  transition-delay: 0.2s;
+}
+.card-grid .card:nth-child(6) {
+  transition-delay: 0.25s;
+}
+
+.lightbox {
+  backdrop-filter: blur(8px);
+}
+
+.lightbox.is-open img {
+  animation: pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .hero-media img,
+  .btn,
+  .card,
+  .team-card,
+  .gallery-item,
+  .review {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .cursor,
+  .cursor-ring {
+    display: none !important;
+  }
+}

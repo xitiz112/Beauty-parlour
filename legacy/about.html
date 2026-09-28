@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About — Liora Beauty Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Outfit:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/interact.css" />
+  </head>
+  <body data-page="about">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" id="site-header"></header>
+    <main id="main" class="container">
+      <section class="page-hero">
+        <p class="eyebrow">About</p>
+        <h1>Opened so the chair could slow down.</h1>
+      </section>
+      <section class="section about-split">
+        <img src="https://images.pexels.com/photos/3065209/pexels-photo-3065209.jpeg?auto=compress&cs=tinysrgb&w=1200" alt="Liora studio interior" />
+        <div class="about-copy">
+          <p>
+            Anisha Basnet started Liora in Jhamsikhel after years of working rooms that booked too tightly. The studio keeps a short day on purpose: color, bridal, skin, and nails share one quiet floor, and every tool is sanitized between guests.
+          </p>
+          <p>
+            We take time with color so it still looks like you on a Tuesday. If a look will not grow out kindly, we say so before the first foil goes in.
+          </p>
+        </div>
+      </section>
+      <section class="section" id="team">
+        <div class="section-head">
+          <p class="eyebrow">People</p>
+          <h2>The chairs you can book.</h2>
+        </div>
+        <div class="team-grid" id="team-grid"></div>
+      </section>
+    </main>
+    <footer class="site-footer" id="site-footer"></footer>
+    <script src="js/salon-data.js"></script>
+    <script src="js/layout.js"></script>
+    <script>
+      document.getElementById("team-grid").innerHTML = window.SALON.team
+        .map(function (member) {
+          return `
+            <article class="team-card">
+              <div class="team-media">
+                <img src="${member.image}" alt="${member.name}" />
+                <a class="btn btn-light team-cta" href="index.html?stylist=${encodeURIComponent(member.name)}#book">Book ${member.name.split(" ")[0]}</a>
+              </div>
+              <h3>${member.name}</h3>
+              <p class="role">${member.role}</p>
+              <p>${member.specialty}</p>
+              <a class="text-link" href="index.html?stylist=${encodeURIComponent(member.name)}#book">Book with ${member.name.split(" ")[0]}</a>
+            </article>
+          `;
+        })
+        .join("");
+    </script>
+    <script src="js/main.js"></script>
+    <script src="js/interact.js"></script>
+  </body>
+</html>

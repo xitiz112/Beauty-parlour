@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+  no_show
+}
+
+model ServiceCategory {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  name      String
+  teaser    String
+  fromPrice Int
+  image     String
+  featured  Boolean   @default(false)
+  sortOrder Int       @default(0)
+  services  Service[]
+}
+
+model Service {
+  id              String           @id @default(cuid())
+  categoryId      String
+  category        ServiceCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name            String
+  durationMinutes Int
+  price           Int
+  description     String?
+  published       Boolean          @default(true)
+  sortOrder       Int              @default(0)
+  stylists        StylistService[]
+  appointments    Appointment[]
+}
+
+model Stylist {
+  id           String           @id @default(cuid())
+  name         String
+  slug         String           @unique
+  role         String
+  specialty    String
+  image        String
+  published    Boolean          @default(true)
+  sortOrder    Int              @default(0)
+  services     StylistService[]
+  hours        WorkingHour[]
+  appointments Appointment[]
+}
+
+model StylistService {
+  stylistId String
+  serviceId String
+  stylist   Stylist @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([stylistId, serviceId])
+}
+
+model WorkingHour {
+  id        String  @id @default(cuid())
+  stylistId String
+  stylist   Stylist @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startMin  Int
+  endMin    Int
+
+  @@unique([stylistId, dayOfWeek])
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  guestName String
+  phone     String
+  email     String?
+  notes     String?
+  serviceId String
+  service   Service           @relation(fields: [serviceId], references: [id])
+  stylistId String
+  stylist   Stylist           @relation(fields: [stylistId], references: [id])
+  startsAt  DateTime
+  endsAt    DateTime
+  status    AppointmentStatus @default(pending)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([stylistId, startsAt])
+  @@index([status])
+}
+
+model Review {
+  id        String  @id @default(cuid())
+  guestName String
+  service   String
+  rating    Int
+  quote     String
+  published Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+model GalleryItem {
+  id        String  @id @default(cuid())
+  caption   String
+  image     String
+  published Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+model Offer {
+  id        String    @id @default(cuid())
+  title     String
+  detail    String
+  cta       String
+  eyebrow   String?
+  expiresAt DateTime?
+  active    Boolean   @default(true)
+}
+
+model Signature {
+  id            String @id @default(cuid())
+  name          String
+  story         String
+  fromPrice     Int
+  image         String
+  categorySlug  String
+  treatmentName String
+  sortOrder     Int    @default(0)
+}
+
+model InstagramPost {
+  id        String @id @default(cuid())
+  image     String
+  alt       String
+  sortOrder Int    @default(0)
+}
+
+model StudioSetting {
+  id            String @id @default("studio")
+  name          String
+  shortName     String
+  tagline       String
+  city          String
+  neighborhood  String
+  address       String
+  landmark      String
+  phone         String
+  phoneHref     String
+  whatsapp      String
+  whatsappHref  String
+  email         String
+  instagram     String
+  instagramHref String
+  facebookHref  String
+  mapsEmbed     String
+  parking       String
+  walkIns       String
+  confirmNote   String
+  aboutWords    String
+  aboutImage    String
+  heroImage     String
+  googleScore   String
+  googleCount   String
+  ownerName     String
+  ownerRole     String
+}
+
+model AdminUser {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  name         String
+}

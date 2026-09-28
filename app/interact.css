@@ -1,0 +1,289 @@
+/* Interactive layer — buttons, cards, cursor, reveals */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  z-index: 60;
+  background: linear-gradient(90deg, var(--blush), var(--gold));
+  pointer-events: none;
+}
+
+.btn {
+  box-shadow: 0 8px 20px rgba(74, 48, 36, 0.12);
+}
+
+.btn-primary:hover,
+.btn-line:hover,
+.btn-light:hover {
+  color: var(--white);
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  color: var(--ink);
+}
+
+.text-link {
+  position: relative;
+}
+
+.text-link::after {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card,
+.team-card,
+.review,
+.gallery-item,
+.signature,
+.visit-card,
+.offer-banner,
+.form-card,
+.book-panel {
+  will-change: transform;
+}
+
+.card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s ease;
+}
+
+.card:hover,
+.card.is-hot {
+  box-shadow: 0 28px 60px rgba(34, 28, 25, 0.16);
+}
+
+.card-media {
+  isolation: isolate;
+}
+
+.card-media img {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card:hover .card-media img {
+  transform: scale(1.1);
+}
+
+.team-card {
+  position: relative;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.team-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow);
+}
+
+.team-media {
+  position: relative;
+  overflow: hidden;
+}
+
+.team-media img,
+.team-card > img {
+  transition: transform 0.7s ease, filter 0.4s ease;
+}
+
+.team-card:hover img {
+  transform: scale(1.08);
+  filter: brightness(0.78);
+}
+
+.team-cta {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 2;
+  min-height: 40px;
+  padding-inline: 1rem;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.team-card:hover .team-cta,
+.team-card:focus-within .team-cta {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.gallery-item {
+  transform: none;
+}
+
+.gallery-item .view-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(250, 246, 240, 0.92);
+  color: var(--ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.gallery-item:hover .view-dot,
+.gallery-item:focus-visible .view-dot {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.review {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.review:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow);
+}
+
+.review:hover .stars {
+  animation: twinkle 0.8s ease;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    letter-spacing: 0.12em;
+  }
+  50% {
+    letter-spacing: 0.22em;
+    color: #d8b48a;
+  }
+}
+
+.signature img {
+  transition: transform 0.7s ease;
+}
+
+.signature:hover img {
+  transform: scale(1.04);
+}
+
+.offer-banner,
+.book-panel,
+.form-card,
+.visit-card {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.offer-banner:hover,
+.form-card:hover,
+.book-panel:hover,
+.visit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+
+.trust-item strong {
+  transition: transform 0.35s ease, color 0.35s ease;
+}
+
+.trust-item:hover strong {
+  transform: scale(1.06);
+  color: var(--blush-deep);
+}
+
+.hero-media img {
+  animation: kenburns 18s ease-in-out infinite alternate;
+}
+
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.hero-meta span {
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.hero-meta span:hover {
+  background: rgba(255, 253, 249, 0.18);
+  transform: translateY(-2px);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.card-grid .card:nth-child(2) {
+  transition-delay: 0.05s;
+}
+.card-grid .card:nth-child(3) {
+  transition-delay: 0.1s;
+}
+.card-grid .card:nth-child(4) {
+  transition-delay: 0.15s;
+}
+.card-grid .card:nth-child(5) {
+  transition-delay: 0.2s;
+}
+.card-grid .card:nth-child(6) {
+  transition-delay: 0.25s;
+}
+
+.lightbox {
+  backdrop-filter: blur(8px);
+}
+
+.lightbox.is-open img {
+  animation: pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .hero-media img,
+  .hero-track,
+  .btn,
+  .card,
+  .team-card,
+  .gallery-item,
+  .review {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .cursor,
+  .cursor-ring {
+    display: none !important;
+  }
+}

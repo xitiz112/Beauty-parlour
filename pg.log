@@ -1,0 +1,79 @@
+2026-09-27 13:09:10.681 +0545 [10224] FATAL:  shmat(id=124977155, addr=0x0, flags=0x0) failed: Operation not permitted
+2026-09-27 13:09:10.681 +0545 [10224] LOG:  shmctl(124977155, 0, 0) failed: Operation not permitted
+2026-09-27 13:09:10.682 +0545 [10224] LOG:  database system is shut down
+2026-09-27 13:10:55.188 +0545 [10282] LOG:  starting PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 16.0.0 (clang-1600.0.26.6), 64-bit
+2026-09-27 13:10:55.190 +0545 [10282] LOG:  listening on IPv6 address "::1", port 5434
+2026-09-27 13:10:55.190 +0545 [10282] LOG:  listening on IPv4 address "127.0.0.1", port 5434
+2026-09-27 13:10:55.191 +0545 [10282] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5434"
+2026-09-27 13:10:55.198 +0545 [10283] LOG:  database system was interrupted; last known up at 2026-09-23 18:45:48 +0545
+2026-09-27 13:10:55.319 +0545 [10283] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-09-27 13:10:55.323 +0545 [10283] LOG:  redo starts at 0/198EE60
+2026-09-27 13:10:55.323 +0545 [10283] LOG:  invalid record length at 0/198EF48: wanted 24, got 0
+2026-09-27 13:10:55.324 +0545 [10283] LOG:  redo done at 0/198EF10 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-09-27 13:10:55.331 +0545 [10282] LOG:  database system is ready to accept connections
+2026-09-27 13:10:58.439 +0545 [10293] FATAL:  role "basnet" does not exist
+2026-09-27 15:49:42.551 +0545 [10287] LOG:  using stale statistics instead of current ones because stats collector is not responding
+2026-09-27 16:00:31.937 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:32.689 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:32.703 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:33.445 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:33.455 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:34.204 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:34.205 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:34.965 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:34.975 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:35.722 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:35.722 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:36.480 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:36.491 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:37.237 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:37.237 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:37.991 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:37.991 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 16:00:38.751 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:17.500 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:18.199 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:18.200 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:18.910 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:18.919 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:19.613 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:19.626 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:20.327 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:20.340 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:21.040 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:21.051 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:21.755 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:21.766 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:22.458 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:22.466 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:23.170 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:23.183 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:23.890 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:23.890 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:24.611 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:24.614 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:25.313 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:25.325 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:26.021 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:26.029 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:26.739 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:26.743 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:27.449 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:27.457 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:28.186 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:00:28.197 +0545 [10288] LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No space left on device
+2026-09-27 17:11:44.326 +0545 [10282] LOG:  received smart shutdown request
+2026-09-27 17:11:44.333 +0545 [10282] LOG:  background worker "logical replication launcher" (PID 10289) exited with exit code 1
+2026-09-27 17:11:44.333 +0545 [10284] LOG:  shutting down
+2026-09-27 17:11:44.366 +0545 [10282] LOG:  database system is shut down
+2026-09-27 17:15:44.679 +0545 [1821] LOG:  starting PostgreSQL 14.19 (Homebrew) on aarch64-apple-darwin23.6.0, compiled by Apple clang version 16.0.0 (clang-1600.0.26.6), 64-bit
+2026-09-27 17:15:44.681 +0545 [1821] LOG:  listening on IPv6 address "::1", port 5434
+2026-09-27 17:15:44.681 +0545 [1821] LOG:  listening on IPv4 address "127.0.0.1", port 5434
+2026-09-27 17:15:44.682 +0545 [1821] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5434"
+2026-09-27 17:15:44.691 +0545 [1822] LOG:  database system was shut down at 2026-09-27 17:11:44 +0545
+2026-09-27 17:15:44.699 +0545 [1821] LOG:  database system is ready to accept connections
+2026-09-27 17:16:48.181 +0545 [1955] FATAL:  role "basnet" does not exist
+2026-09-27 18:23:07.459 +0545 [1821] LOG:  received smart shutdown request
+2026-09-27 18:23:07.465 +0545 [1821] LOG:  background worker "logical replication launcher" (PID 1828) exited with exit code 1
+2026-09-27 18:23:07.465 +0545 [1823] LOG:  shutting down
+2026-09-27 18:23:07.495 +0545 [1821] LOG:  database system is shut down
