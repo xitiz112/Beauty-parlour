@@ -1,6 +1,7 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 
-export default auth((request) => {
+export default NextAuth(authConfig).auth((request) => {
   const isAdmin = request.nextUrl.pathname.startsWith("/admin");
   const isLogin = request.nextUrl.pathname.startsWith("/admin/login");
   if (isAdmin && !isLogin && !request.auth) {
