@@ -15,6 +15,32 @@ const STUDIO_HOURS = [
 ];
 
 async function main() {
+  if (process.env.SEED_TARGET === "production") {
+    if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === "liora-desk") {
+      throw new Error("Set a unique ADMIN_PASSWORD before seeding production.");
+    }
+
+    const existingRows = await Promise.all([
+      prisma.appointment.count(),
+      prisma.stylistService.count(),
+      prisma.workingHour.count(),
+      prisma.service.count(),
+      prisma.serviceCategory.count(),
+      prisma.stylist.count(),
+      prisma.review.count(),
+      prisma.galleryItem.count(),
+      prisma.offer.count(),
+      prisma.signature.count(),
+      prisma.instagramPost.count(),
+      prisma.studioSetting.count(),
+      prisma.adminUser.count(),
+    ]);
+
+    if (existingRows.some((count) => count > 0)) {
+      throw new Error("Refusing to seed production: the database is not empty.");
+    }
+  }
+
   await prisma.appointment.deleteMany();
   await prisma.stylistService.deleteMany();
   await prisma.workingHour.deleteMany();
