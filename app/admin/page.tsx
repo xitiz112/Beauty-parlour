@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AppointmentStatus } from "@prisma/client";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { saveAppointment, updateAppointmentStatus } from "@/lib/actions";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { deleteAppointment, saveAppointment, updateAppointmentStatus } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatTime, kathmanduHM, kathmanduISODate, todayISODate } from "@/lib/time";
 
@@ -182,6 +183,11 @@ export default async function AdminBookingsPage({
                         </button>
                       </form>
                     ))}
+                  <form action={deleteAppointment}>
+                    <input type="hidden" name="id" value={row.id} />
+                    <input type="hidden" name="date" value={day} />
+                    <ConfirmSubmit label="Delete" message="Delete this booking permanently?" />
+                  </form>
                 </div>
               </td>
             </tr>
