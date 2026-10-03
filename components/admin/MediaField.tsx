@@ -85,7 +85,7 @@ export function MediaField({
     ));
   }
 
-  function useAsPrimary(fieldName: string, url: string) {
+  function setAsPrimary(fieldName: string, url: string) {
     setPrimaryValues((current) => ({ ...current, [fieldName]: url }));
     setMediaUrls((current) => [url, ...current.filter((item) => item !== url)]);
   }
@@ -142,7 +142,7 @@ export function MediaField({
                   <button
                     key={field.name}
                     type="button"
-                    onClick={() => useAsPrimary(field.name, url)}
+                    onClick={() => setAsPrimary(field.name, url)}
                     aria-pressed={primaryValues[field.name] === url}
                     aria-label={`Use media as ${field.label}`}
                   >
