@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { updateDeskAccount, updateStudioSetting } from "@/lib/actions";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { createDeskUser, deleteDeskUser, updateDeskAccount, updateStudioSetting } from "@/lib/actions";
 import { getStudio } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 
@@ -38,9 +39,10 @@ const studioFields: Array<{ key: keyof Awaited<ReturnType<typeof getStudio>>; la
 
 export default async function AdminSettingsPage() {
   const session = await auth();
-  const [studio, desk] = await Promise.all([
+  const [studio, desk, deskUsers] = await Promise.all([
     getStudio(),
     session?.user?.id ? prisma.adminUser.findUnique({ where: { id: session.user.id } }) : Promise.resolve(null),
+    prisma.adminUser.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, email: true } }),
   ]);
 
   return (
@@ -98,6 +100,56 @@ export default async function AdminSettingsPage() {
       ) : (
         <p className="muted">Sign in again to edit the desk password.</p>
       )}
+
+      <section className="admin-form">
+        <h2>Desk users</h2>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {deskUsers.map((user) => (
+              <tr key={user.id}>
+                <td>{user.name}</td>
+                <td>{user.email}</td>
+                <td>
+                  {user.id === desk?.id ? (
+                    <span className="muted">You</span>
+                  ) : (
+                    <ActionForm action={deleteDeskUser} className="">
+                      <input type="hidden" name="id" value={user.id} />
+                      <ConfirmSubmit label="Remove" message={`Remove desk access for ${user.email}?`} />
+                    </ActionForm>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <ActionForm action={createDeskUser}>
+        <h2>Add desk user</h2>
+        <label>
+          Name
+          <input name="name" required />
+        </label>
+        <label>
+          Email
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" autoComplete="new-password" minLength={8} required />
+        </label>
+        <button className="btn btn-primary" type="submit">
+          Add desk user
+        </button>
+      </ActionForm>
     </main>
   );
 }

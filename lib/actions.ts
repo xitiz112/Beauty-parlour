@@ -163,6 +163,23 @@ export async function updateAppointmentStatus(formData: FormData) {
   redirect(back);
 }
 
+export async function deleteAppointment(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const date = text(formData, "date");
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+
+  if (!id) {
+    params.set("error", "Missing booking.");
+    redirect(`/admin?${params}`);
+  }
+
+  await prisma.appointment.deleteMany({ where: { id } });
+  revalidateSite();
+  redirect(params.size ? `/admin?${params}` : "/admin");
+}
+
 export async function saveServiceCategory(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const id = text(formData, "id");
@@ -752,6 +769,45 @@ export async function updateDeskAccount(_: ActionState, formData: FormData): Pro
   await prisma.adminUser.update({ where: { id: userId }, data });
   revalidateSite();
   return { success: newPassword ? "Desk details and password saved." : "Desk details saved." };
+}
+
+export async function createDeskUser(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const name = text(formData, "name");
+  const email = text(formData, "email").toLowerCase();
+  const password = text(formData, "password");
+
+  if (!name || !email) {
+    return { error: "Name and email are required." };
+  }
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+
+  const taken = await prisma.adminUser.findUnique({ where: { email } });
+  if (taken) return { error: "That email is already in use." };
+
+  await prisma.adminUser.create({
+    data: { name, email, passwordHash: await bcrypt.hash(password, 10) },
+  });
+  revalidateSite();
+  return { success: "Desk user added." };
+}
+
+export async function deleteDeskUser(_: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing desk user." };
+  if (id === session.user.id) {
+    return { error: "You cannot delete the account you are signed in with." };
+  }
+  if ((await prisma.adminUser.count()) <= 1) {
+    return { error: "At least one desk user must remain." };
+  }
+
+  await prisma.adminUser.deleteMany({ where: { id } });
+  revalidateSite();
+  return { success: "Desk user removed." };
 }
 
 export async function updateService(formData: FormData) {
