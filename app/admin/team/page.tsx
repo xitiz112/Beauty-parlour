@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
 import { WEEKDAYS } from "@/lib/admin";
-import { deleteStylist, deleteWorkingHour, saveStylist, saveWorkingHour } from "@/lib/actions";
+import { deleteStylist, deleteWorkingHour, saveStylist, saveStylistServiceMedia, saveWorkingHour } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 import { minutesToTime } from "@/lib/time";
 
@@ -50,10 +51,7 @@ export default async function AdminTeamPage() {
             <input name="specialty" required />
           </label>
         </div>
-        <label>
-          Image URL
-          <input name="image" required />
-        </label>
+        <MediaField primaryName="image" primaryRequired />
         <label>
           Sort
           <input type="number" name="sortOrder" defaultValue={stylists.length + 1} />
@@ -97,10 +95,7 @@ export default async function AdminTeamPage() {
                 Specialty
                 <input name="specialty" defaultValue={stylist.specialty} required />
               </label>
-              <label>
-                Image URL
-                <input name="image" defaultValue={stylist.image} required />
-              </label>
+              <MediaField primaryName="image" initialPrimary={stylist.image} initialMediaUrls={stylist.mediaUrls} primaryRequired />
               <label>
                 Sort
                 <input type="number" name="sortOrder" defaultValue={stylist.sortOrder} />
@@ -134,6 +129,20 @@ export default async function AdminTeamPage() {
               />
             </ActionForm>
 
+            <h3>Treatment portfolio media</h3>
+            {stylist.services.map((serviceLink) => {
+              const service = allServices.find((item) => item.id === serviceLink.serviceId);
+              if (!service) return null;
+              return (
+                <ActionForm action={saveStylistServiceMedia} key={serviceLink.serviceId}>
+                  <input type="hidden" name="stylistId" value={stylist.id} />
+                  <input type="hidden" name="serviceId" value={serviceLink.serviceId} />
+                  <MediaField initialMediaUrls={serviceLink.mediaUrls} label={`${service.categoryName} — ${service.name} media`} />
+                  <button className="btn btn-line" type="submit">Save portfolio media</button>
+                </ActionForm>
+              );
+            })}
+
             {stylist.hours.map((hour) => (
               <div key={hour.id}>
                 <ActionForm action={saveWorkingHour}>
@@ -159,6 +168,7 @@ export default async function AdminTeamPage() {
                       <input type="time" name="endMin" defaultValue={minutesToTime(hour.endMin)} />
                     </label>
                   </div>
+                  <MediaField initialMediaUrls={hour.mediaUrls} label="Working-hour media" />
                   <button className="btn btn-line" type="submit">
                     Save hours
                   </button>
@@ -193,6 +203,7 @@ export default async function AdminTeamPage() {
                   <input type="time" name="endMin" defaultValue="19:00" />
                 </label>
               </div>
+              <MediaField label="Working-hour media" />
               <button className="btn btn-line" type="submit">
                 Add hours
               </button>

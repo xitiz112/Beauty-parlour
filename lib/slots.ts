@@ -89,6 +89,7 @@ export async function bookSlot(input: {
   phone: string;
   email?: string;
   notes?: string;
+  mediaUrls?: string[];
   serviceId: string;
   stylistId: string;
   startsAt: Date;
@@ -142,6 +143,7 @@ export async function bookSlot(input: {
         phone: input.phone,
         email: input.email || null,
         notes: input.notes || null,
+        ...(input.mediaUrls ? { mediaUrls: input.mediaUrls } : {}),
         serviceId: input.serviceId,
         stylistId: input.stylistId,
         startsAt: input.startsAt,

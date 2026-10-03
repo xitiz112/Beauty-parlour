@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CalendarDays, Images, MessageSquareQuote, PackageOpen, Scissors, Settings2, Sparkles, Users } from "lucide-react";
 import { AppointmentStatus } from "@prisma/client";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { saveAppointment, updateAppointmentStatus } from "@/lib/actions";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
+import { deleteAppointment, saveAppointment, updateAppointmentStatus } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatTime, kathmanduHM, kathmanduISODate, todayISODate } from "@/lib/time";
 
@@ -21,7 +24,7 @@ export default async function AdminBookingsPage({
   const start = new Date(`${day}T00:00:00+05:45`);
   const end = new Date(`${day}T23:59:59+05:45`);
 
-  const [appointments, services, stylists, editing] = await Promise.all([
+  const [appointments, services, stylists, editing, pendingCount, categoryCount, stylistCount, galleryCount] = await Promise.all([
     prisma.appointment.findMany({
       where: { startsAt: { gte: start, lte: end } },
       include: { service: true, stylist: true },
@@ -38,14 +41,69 @@ export default async function AdminBookingsPage({
           include: { service: true, stylist: true },
         })
       : Promise.resolve(null),
+    prisma.appointment.count({ where: { status: "pending" } }),
+    prisma.serviceCategory.count(),
+    prisma.stylist.count({ where: { published: true } }),
+    prisma.galleryItem.count({ where: { published: true } }),
   ]);
+
+  const managementLinks = [
+    { href: "/admin/services", label: "Services & menu", detail: `${categoryCount} categories`, icon: Scissors },
+    { href: "/admin/team", label: "Studio team", detail: `${stylistCount} published stylists`, icon: Users },
+    { href: "/admin/gallery", label: "Gallery", detail: `${galleryCount} published looks`, icon: Images },
+    { href: "/admin/reviews", label: "Guest reviews", detail: "Manage testimonials", icon: MessageSquareQuote },
+    { href: "/admin/content", label: "Offers & packages", detail: "Homepage content", icon: PackageOpen },
+    { href: "/admin/settings", label: "Studio settings", detail: "Contact and site details", icon: Settings2 },
+  ];
 
   return (
     <main>
       <section className="page-hero">
-        <p className="eyebrow">Book</p>
-        <h1>Today&apos;s chairs</h1>
+        <p className="eyebrow">STUDIO DESK</p>
+        <h1>Good to see you.</h1>
+        <p className="muted">Your studio overview and daily booking desk.</p>
       </section>
+      <section className="admin-overview" aria-label="Studio overview">
+        <article className="admin-stat-card">
+          <span><CalendarDays aria-hidden="true" /></span>
+          <div><strong>{appointments.length}</strong><p>Bookings today</p></div>
+        </article>
+        <article className="admin-stat-card">
+          <span><Sparkles aria-hidden="true" /></span>
+          <div><strong>{pendingCount}</strong><p>Awaiting confirmation</p></div>
+        </article>
+        <article className="admin-stat-card">
+          <span><Scissors aria-hidden="true" /></span>
+          <div><strong>{services.length}</strong><p>Menu treatments</p></div>
+        </article>
+      </section>
+
+      <section className="admin-management" aria-labelledby="admin-management-title">
+        <div className="admin-section-heading">
+          <div>
+            <p className="eyebrow">MANAGE YOUR STUDIO</p>
+            <h2 id="admin-management-title">Your workspace</h2>
+          </div>
+          <Link href="/admin/users">Manage desk users <Users aria-hidden="true" size={16} /></Link>
+        </div>
+        <div className="admin-management-grid">
+          {managementLinks.map(({ href, label, detail, icon: Icon }) => (
+            <Link className="admin-management-card" href={href} key={href}>
+              <span className="admin-management-icon"><Icon aria-hidden="true" /></span>
+              <span><strong>{label}</strong><small>{detail}</small></span>
+              <span className="admin-management-arrow" aria-hidden="true">↗</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-booking-desk" aria-labelledby="admin-booking-title">
+        <div className="admin-section-heading">
+          <div>
+            <p className="eyebrow">BOOKINGS</p>
+            <h2 id="admin-booking-title">Today&apos;s chairs</h2>
+          </div>
+        </div>
       {error ? <p className="field-error">{error}</p> : null}
 
       <ActionForm action={saveAppointment}>
@@ -115,6 +173,7 @@ export default async function AdminBookingsPage({
           Notes
           <textarea name="notes" defaultValue={editing?.notes || ""} />
         </label>
+        <MediaField initialMediaUrls={editing?.mediaUrls || []} label="Booking attachments" />
         <div className="admin-actions">
           <button className="btn btn-primary" type="submit">
             {editing ? "Update booking" : "Create booking"}
@@ -182,12 +241,21 @@ export default async function AdminBookingsPage({
                         </button>
                       </form>
                     ))}
+                  <ActionForm action={deleteAppointment}>
+                    <input type="hidden" name="id" value={row.id} />
+                    <input type="hidden" name="date" value={day} />
+                    <ConfirmSubmit
+                      label="Delete"
+                      message={`Permanently delete the appointment for ${row.guestName}?`}
+                    />
+                  </ActionForm>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </section>
     </main>
   );
 }

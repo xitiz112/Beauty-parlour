@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
 import { deleteReview, saveReview } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
@@ -39,6 +40,7 @@ export default async function AdminReviewsPage() {
           Quote
           <textarea name="quote" required />
         </label>
+        <MediaField />
         <label className="inline-check">
           <input type="checkbox" name="published" defaultChecked /> Published
         </label>
@@ -72,6 +74,7 @@ export default async function AdminReviewsPage() {
               Quote
               <textarea name="quote" defaultValue={review.quote} required />
             </label>
+            <MediaField initialMediaUrls={review.mediaUrls} />
             <label className="inline-check">
               <input type="checkbox" name="published" defaultChecked={review.published} /> Published
             </label>

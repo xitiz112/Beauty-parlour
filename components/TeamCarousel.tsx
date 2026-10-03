@@ -2,9 +2,10 @@
 
 import type { Stylist } from "@prisma/client";
 import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type TeamMember = Pick<Stylist, "id" | "name" | "role" | "specialty" | "image">;
+type TeamMember = Pick<Stylist, "id" | "name" | "role" | "specialty" | "image" | "mediaUrls">;
 
 export function TeamCarousel({ stylists }: { stylists: TeamMember[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -47,10 +48,10 @@ export function TeamCarousel({ stylists }: { stylists: TeamMember[] }) {
     <div className="team-carousel">
       <div className="team-carousel-controls" aria-label="Team carousel controls">
         <button type="button" onClick={() => move(-1)} disabled={!canGoBack} aria-label="Previous team members">
-          <span aria-hidden="true">←</span>
+          <ArrowLeft aria-hidden="true" size={20} />
         </button>
         <button type="button" onClick={() => move(1)} disabled={!canGoForward} aria-label="Next team members">
-          <span aria-hidden="true">→</span>
+          <ArrowRight aria-hidden="true" size={20} />
         </button>
       </div>
       <div className="team-track" ref={trackRef} role="region" aria-label="Our team" aria-roledescription="carousel" tabIndex={0}>

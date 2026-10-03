@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
 import {
   deleteInstagramPost,
   deleteOffer,
@@ -43,6 +44,7 @@ export default async function AdminContentPage() {
           Detail
           <textarea name="detail" required />
         </label>
+        <MediaField />
         <div className="form-row two">
           <label>
             Button label
@@ -76,6 +78,7 @@ export default async function AdminContentPage() {
               Detail
               <textarea name="detail" defaultValue={offer.detail} required />
             </label>
+            <MediaField initialMediaUrls={offer.mediaUrls} />
             <div className="form-row two">
               <label>
                 Button label
@@ -120,10 +123,7 @@ export default async function AdminContentPage() {
           Story
           <textarea name="story" required />
         </label>
-        <label>
-          Image URL
-          <input name="image" required />
-        </label>
+        <MediaField primaryName="image" primaryRequired />
         <div className="form-row two">
           <label>
             Category slug
@@ -167,10 +167,7 @@ export default async function AdminContentPage() {
               Story
               <textarea name="story" defaultValue={item.story} required />
             </label>
-            <label>
-              Image URL
-              <input name="image" defaultValue={item.image} required />
-            </label>
+            <MediaField primaryName="image" initialPrimary={item.image} initialMediaUrls={item.mediaUrls} primaryRequired />
             <div className="form-row two">
               <label>
                 Category slug
@@ -220,10 +217,7 @@ export default async function AdminContentPage() {
       <h2>Instagram posts</h2>
       <ActionForm action={saveInstagramPost}>
         <h3>Add post</h3>
-        <label>
-          Image URL
-          <input name="image" required />
-        </label>
+        <MediaField primaryName="image" primaryRequired />
         <label>
           Alt text
           <input name="alt" required />
@@ -240,10 +234,7 @@ export default async function AdminContentPage() {
         <div key={post.id}>
           <ActionForm action={saveInstagramPost}>
             <input type="hidden" name="id" value={post.id} />
-            <label>
-              Image URL
-              <input name="image" defaultValue={post.image} required />
-            </label>
+            <MediaField primaryName="image" initialPrimary={post.image} initialMediaUrls={post.mediaUrls} primaryRequired />
             <label>
               Alt text
               <input name="alt" defaultValue={post.alt} required />

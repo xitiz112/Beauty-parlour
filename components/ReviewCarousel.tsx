@@ -1,6 +1,7 @@
 "use client";
 
 import type { Review } from "@prisma/client";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const portraits = [
@@ -52,10 +53,10 @@ export function ReviewCarousel({ reviews }: { reviews: GuestReview[] }) {
     <div className="review-carousel">
       <div className="review-carousel-controls" aria-label="Testimonial carousel controls">
         <button type="button" onClick={() => move(-1)} disabled={!canGoBack} aria-label="Previous testimonials">
-          <span aria-hidden="true">←</span>
+          <ArrowLeft aria-hidden="true" size={20} />
         </button>
         <button type="button" onClick={() => move(1)} disabled={!canGoForward} aria-label="Next testimonials">
-          <span aria-hidden="true">→</span>
+          <ArrowRight aria-hidden="true" size={20} />
         </button>
       </div>
       <div className="review-track" ref={trackRef} role="region" aria-label="Guest testimonials" aria-roledescription="carousel" tabIndex={0}>

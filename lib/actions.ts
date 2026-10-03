@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { AppointmentStatus, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { CredentialsSignin } from "next-auth";
 import { auth, signIn, signOut } from "@/auth";
 import { bool, DEFAULT_HOURS, int, revalidateSite, text, uniqueCategorySlug, uniqueStylistSlug } from "./admin";
 import { prisma } from "./prisma";
@@ -16,6 +17,24 @@ export type ActionState = {
 
 const BLOCKING: AppointmentStatus[] = ["pending", "confirmed"];
 const STATUSES: AppointmentStatus[] = ["pending", "confirmed", "cancelled", "completed", "no_show"];
+
+function mediaUrls(formData: FormData) {
+  try {
+    const value: unknown = JSON.parse(text(formData, "mediaUrls") || "[]");
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value.filter((url): url is string => {
+      if (typeof url !== "string" || url.length > 2048) return false;
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === "https:" || parsed.protocol === "http:";
+      } catch {
+        return false;
+      }
+    }))].slice(0, 50);
+  } catch {
+    return [];
+  }
+}
 
 export async function createBooking(_: ActionState, formData: FormData): Promise<ActionState> {
   const guestName = String(formData.get("name") || "").trim();
@@ -48,12 +67,19 @@ export async function createBooking(_: ActionState, formData: FormData): Promise
 }
 
 export async function loginAdmin(_: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") || "");
+  const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
+
+  if (!email || !password) {
+    return { error: "Enter your desk email and password." };
+  }
 
   try {
     await signIn("credentials", { email, password, redirect: false });
-  } catch {
+  } catch (error) {
+    if (error instanceof CredentialsSignin && error.code === "too-many-attempts") {
+      return { error: "Too many failed attempts. Try again in a few minutes." };
+    }
     return { error: "Those desk details are not right." };
   }
 
@@ -95,6 +121,7 @@ export async function saveAppointment(_: ActionState, formData: FormData): Promi
   const statusRaw = text(formData, "status") as AppointmentStatus;
   const status = STATUSES.includes(statusRaw) ? statusRaw : "pending";
   const startsAt = parseKathmanduDateTime(date, time);
+  const attachedMedia = mediaUrls(formData);
 
   if (!guestName || !phone || !serviceId || !stylistId || !startsAt) {
     return { error: "Guest name, phone, treatment, stylist, date, and time are required." };
@@ -113,6 +140,7 @@ export async function saveAppointment(_: ActionState, formData: FormData): Promi
       allowPast: true,
       requirePublished: false,
       excludeAppointmentId: id || undefined,
+      mediaUrls: attachedMedia,
     });
   } catch (error) {
     return fail(error, "Could not save that booking.");
@@ -120,6 +148,23 @@ export async function saveAppointment(_: ActionState, formData: FormData): Promi
 
   revalidateSite();
   redirect(`/admin?date=${date}`);
+}
+
+export async function deleteAppointment(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing appointment." };
+
+  try {
+    await prisma.appointment.delete({ where: { id } });
+  } catch (error) {
+    return fail(error, "Could not delete that appointment.");
+  }
+
+  revalidateSite();
+  const date = text(formData, "date");
+  if (date) redirect(`/admin?date=${encodeURIComponent(date)}`);
+  return { success: "Appointment deleted." };
 }
 
 export async function updateAppointmentStatus(formData: FormData) {
@@ -173,6 +218,7 @@ export async function saveServiceCategory(_: ActionState, formData: FormData): P
   const sortOrder = int(formData, "sortOrder");
   const featured = bool(formData, "featured");
   const slugInput = text(formData, "slug");
+  const attachedMedia = mediaUrls(formData);
 
   if (!name || !teaser || !image) {
     return { error: "Name, teaser, and image are required." };
@@ -186,7 +232,7 @@ export async function saveServiceCategory(_: ActionState, formData: FormData): P
       const slug = slugInput ? await uniqueCategorySlug(slugInput, id) : undefined;
       await prisma.serviceCategory.update({
         where: { id },
-        data: { name, teaser, image, fromPrice, sortOrder, featured, ...(slug ? { slug } : {}) },
+        data: { name, teaser, image, mediaUrls: attachedMedia, fromPrice, sortOrder, featured, ...(slug ? { slug } : {}) },
       });
     } else {
       await prisma.serviceCategory.create({
@@ -194,6 +240,7 @@ export async function saveServiceCategory(_: ActionState, formData: FormData): P
           name,
           teaser,
           image,
+          mediaUrls: attachedMedia,
           fromPrice,
           sortOrder: sortOrder || (await nextSort(prisma.serviceCategory)),
           featured,
@@ -230,10 +277,12 @@ export async function saveService(_: ActionState, formData: FormData): Promise<A
   const categoryId = text(formData, "categoryId");
   const name = text(formData, "name");
   const description = text(formData, "description");
+  const image = text(formData, "image");
   const durationMinutes = int(formData, "durationMinutes");
   const price = int(formData, "price");
   const sortOrder = int(formData, "sortOrder");
   const published = bool(formData, "published");
+  const attachedMedia = mediaUrls(formData);
 
   if (!categoryId || !name) {
     return { error: "Category and name are required." };
@@ -252,7 +301,7 @@ export async function saveService(_: ActionState, formData: FormData): Promise<A
     if (id) {
       await prisma.service.update({
         where: { id },
-        data: { categoryId, name, description: description || null, durationMinutes, price, sortOrder, published },
+        data: { categoryId, name, description: description || null, image: image || null, mediaUrls: attachedMedia, durationMinutes, price, sortOrder, published },
       });
     } else {
       await prisma.service.create({
@@ -260,6 +309,8 @@ export async function saveService(_: ActionState, formData: FormData): Promise<A
           categoryId,
           name,
           description: description || null,
+          image: image || null,
+          mediaUrls: attachedMedia,
           durationMinutes,
           price,
           sortOrder: sortOrder || (await prisma.service.count({ where: { categoryId } })) + 1,
@@ -298,17 +349,25 @@ async function syncStylistServices(stylistId: string, formData: FormData) {
     ? await prisma.service.findMany({ where: { id: { in: requested } }, select: { id: true } })
     : [];
   const serviceIds = services.map((row) => row.id);
+  const existing = await prisma.stylistService.findMany({ where: { stylistId }, select: { serviceId: true } });
+  const existingIds = new Set(existing.map((row) => row.serviceId));
 
-  await prisma.$transaction([
-    prisma.stylistService.deleteMany({ where: { stylistId } }),
-    ...(serviceIds.length
-      ? [
-          prisma.stylistService.createMany({
-            data: serviceIds.map((serviceId) => ({ stylistId, serviceId })),
-          }),
-        ]
-      : []),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.stylistService.deleteMany({
+      where: {
+        stylistId,
+        ...(serviceIds.length ? { serviceId: { notIn: serviceIds } } : {}),
+      },
+    });
+
+    const additions = serviceIds.filter((serviceId) => !existingIds.has(serviceId));
+    if (additions.length) {
+      await tx.stylistService.createMany({
+        data: additions.map((serviceId) => ({ stylistId, serviceId })),
+        skipDuplicates: true,
+      });
+    }
+  });
 }
 
 export async function saveStylist(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -321,6 +380,7 @@ export async function saveStylist(_: ActionState, formData: FormData): Promise<A
   const slugInput = text(formData, "slug");
   const sortOrder = int(formData, "sortOrder");
   const published = bool(formData, "published");
+  const attachedMedia = mediaUrls(formData);
 
   if (!name || !role || !specialty || !image) {
     return { error: "Name, role, specialty, and image are required." };
@@ -331,7 +391,7 @@ export async function saveStylist(_: ActionState, formData: FormData): Promise<A
       const slug = slugInput ? await uniqueStylistSlug(slugInput, id) : undefined;
       await prisma.stylist.update({
         where: { id },
-        data: { name, role, specialty, image, sortOrder, published, ...(slug ? { slug } : {}) },
+        data: { name, role, specialty, image, mediaUrls: attachedMedia, sortOrder, published, ...(slug ? { slug } : {}) },
       });
       await syncStylistServices(id, formData);
     } else {
@@ -341,6 +401,7 @@ export async function saveStylist(_: ActionState, formData: FormData): Promise<A
           role,
           specialty,
           image,
+          mediaUrls: attachedMedia,
           published,
           sortOrder: sortOrder || (await nextSort(prisma.stylist)),
           slug: await uniqueStylistSlug(slugInput || name),
@@ -388,6 +449,7 @@ export async function saveWorkingHour(_: ActionState, formData: FormData): Promi
   const dayOfWeek = int(formData, "dayOfWeek", -1);
   const startMin = timeToMinutes(text(formData, "startMin") || "0");
   const endMin = timeToMinutes(text(formData, "endMin") || "0");
+  const attachedMedia = mediaUrls(formData);
 
   if (dayOfWeek < 0 || dayOfWeek > 6) {
     return { error: "Choose a weekday." };
@@ -400,12 +462,12 @@ export async function saveWorkingHour(_: ActionState, formData: FormData): Promi
     if (id) {
       await prisma.workingHour.update({
         where: { id },
-        data: { dayOfWeek, startMin, endMin },
+        data: { dayOfWeek, startMin, endMin, mediaUrls: attachedMedia },
       });
     } else {
       if (!stylistId) return { error: "Missing stylist." };
       await prisma.workingHour.create({
-        data: { stylistId, dayOfWeek, startMin, endMin },
+        data: { stylistId, dayOfWeek, startMin, endMin, mediaUrls: attachedMedia },
       });
     }
   } catch (error) {
@@ -417,6 +479,25 @@ export async function saveWorkingHour(_: ActionState, formData: FormData): Promi
 
   revalidateSite();
   return { success: "Hours saved." };
+}
+
+export async function saveStylistServiceMedia(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const stylistId = text(formData, "stylistId");
+  const serviceId = text(formData, "serviceId");
+  if (!stylistId || !serviceId) return { error: "A stylist and service are required." };
+
+  const link = await prisma.stylistService.findUnique({
+    where: { stylistId_serviceId: { stylistId, serviceId } },
+  });
+  if (!link) return { error: "Assign the treatment to this stylist before adding portfolio media." };
+
+  await prisma.stylistService.update({
+    where: { stylistId_serviceId: { stylistId, serviceId } },
+    data: { mediaUrls: mediaUrls(formData) },
+  });
+  revalidateSite();
+  return { success: "Treatment portfolio media saved." };
 }
 
 export async function deleteWorkingHour(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -435,6 +516,7 @@ export async function saveGalleryItem(_: ActionState, formData: FormData): Promi
   const image = text(formData, "image");
   const sortOrder = int(formData, "sortOrder");
   const published = bool(formData, "published");
+  const attachedMedia = mediaUrls(formData);
 
   if (!caption || !image) {
     return { error: "Caption and image are required." };
@@ -443,13 +525,14 @@ export async function saveGalleryItem(_: ActionState, formData: FormData): Promi
   if (id) {
     await prisma.galleryItem.update({
       where: { id },
-      data: { caption, image, sortOrder, published },
+      data: { caption, image, mediaUrls: attachedMedia, sortOrder, published },
     });
   } else {
     await prisma.galleryItem.create({
       data: {
         caption,
         image,
+        mediaUrls: attachedMedia,
         published,
         sortOrder: sortOrder || (await nextSort(prisma.galleryItem)),
       },
@@ -478,6 +561,7 @@ export async function saveReview(_: ActionState, formData: FormData): Promise<Ac
   const rating = int(formData, "rating", 5);
   const sortOrder = int(formData, "sortOrder");
   const published = bool(formData, "published");
+  const attachedMedia = mediaUrls(formData);
 
   if (!guestName || !service || !quote) {
     return { error: "Guest, service, and quote are required." };
@@ -489,7 +573,7 @@ export async function saveReview(_: ActionState, formData: FormData): Promise<Ac
   if (id) {
     await prisma.review.update({
       where: { id },
-      data: { guestName, service, quote, rating, sortOrder, published },
+      data: { guestName, service, quote, rating, mediaUrls: attachedMedia, sortOrder, published },
     });
   } else {
     await prisma.review.create({
@@ -497,6 +581,7 @@ export async function saveReview(_: ActionState, formData: FormData): Promise<Ac
         guestName,
         service,
         quote,
+        mediaUrls: attachedMedia,
         rating,
         published,
         sortOrder: sortOrder || (await nextSort(prisma.review)),
@@ -526,6 +611,7 @@ export async function saveOffer(_: ActionState, formData: FormData): Promise<Act
   const eyebrow = text(formData, "eyebrow");
   const expiresRaw = text(formData, "expiresAt");
   const active = bool(formData, "active");
+  const attachedMedia = mediaUrls(formData);
   const expiresAt = expiresRaw ? parseDatetimeLocal(expiresRaw) : null;
 
   if (!title || !detail || !cta) {
@@ -538,11 +624,11 @@ export async function saveOffer(_: ActionState, formData: FormData): Promise<Act
   if (id) {
     await prisma.offer.update({
       where: { id },
-      data: { title, detail, cta, eyebrow: eyebrow || null, expiresAt, active },
+      data: { title, detail, cta, mediaUrls: attachedMedia, eyebrow: eyebrow || null, expiresAt, active },
     });
   } else {
     await prisma.offer.create({
-      data: { title, detail, cta, eyebrow: eyebrow || null, expiresAt, active },
+      data: { title, detail, cta, mediaUrls: attachedMedia, eyebrow: eyebrow || null, expiresAt, active },
     });
   }
 
@@ -569,6 +655,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
   const treatmentName = text(formData, "treatmentName");
   const fromPrice = int(formData, "fromPrice");
   const sortOrder = int(formData, "sortOrder");
+  const attachedMedia = mediaUrls(formData);
 
   if (!name || !story || !image || !categorySlug || !treatmentName) {
     return { error: "Name, story, image, category, and treatment name are required." };
@@ -592,7 +679,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
   if (id) {
     await prisma.signature.update({
       where: { id },
-      data: { name, story, image, categorySlug, treatmentName, fromPrice, sortOrder },
+      data: { name, story, image, mediaUrls: attachedMedia, categorySlug, treatmentName, fromPrice, sortOrder },
     });
   } else {
     await prisma.signature.create({
@@ -600,6 +687,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
         name,
         story,
         image,
+        mediaUrls: attachedMedia,
         categorySlug,
         treatmentName,
         fromPrice,
@@ -627,6 +715,7 @@ export async function saveInstagramPost(_: ActionState, formData: FormData): Pro
   const image = text(formData, "image");
   const alt = text(formData, "alt");
   const sortOrder = int(formData, "sortOrder");
+  const attachedMedia = mediaUrls(formData);
 
   if (!image || !alt) {
     return { error: "Image and alt text are required." };
@@ -635,11 +724,11 @@ export async function saveInstagramPost(_: ActionState, formData: FormData): Pro
   if (id) {
     await prisma.instagramPost.update({
       where: { id },
-      data: { image, alt, sortOrder },
+      data: { image, alt, mediaUrls: attachedMedia, sortOrder },
     });
   } else {
     await prisma.instagramPost.create({
-      data: { image, alt, sortOrder: sortOrder || (await nextSort(prisma.instagramPost)) },
+      data: { image, alt, mediaUrls: attachedMedia, sortOrder: sortOrder || (await nextSort(prisma.instagramPost)) },
     });
   }
 
@@ -687,7 +776,7 @@ export async function updateStudioSetting(_: ActionState, formData: FormData): P
     "ownerRole",
   ] as const;
 
-  const data: Prisma.StudioSettingUpdateInput = {};
+  const data: Prisma.StudioSettingUpdateInput = { mediaUrls: mediaUrls(formData) };
   for (const key of fields) {
     const value = text(formData, key);
     if (!value) {
@@ -730,7 +819,11 @@ export async function updateDeskAccount(_: ActionState, formData: FormData): Pro
     if (taken) return { error: "That email is already in use." };
   }
 
-  const data: { name: string; email: string; passwordHash?: string } = { name, email };
+  const data: { name: string; email: string; passwordHash?: string; mediaUrls?: string[] } = {
+    name,
+    email,
+    mediaUrls: mediaUrls(formData),
+  };
 
   if (newPassword || confirmPassword) {
     if (!currentPassword) {
@@ -752,6 +845,76 @@ export async function updateDeskAccount(_: ActionState, formData: FormData): Pro
   await prisma.adminUser.update({ where: { id: userId }, data });
   revalidateSite();
   return { success: newPassword ? "Desk details and password saved." : "Desk details saved." };
+}
+
+export async function saveAdminUser(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const name = text(formData, "name");
+  const email = text(formData, "email").toLowerCase();
+  const password = text(formData, "password");
+  const attachedMedia = mediaUrls(formData);
+
+  if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return { error: "Enter a name and valid email address." };
+  }
+  if (!id && password.length < 12) {
+    return { error: "New desk accounts need a password of at least 12 characters." };
+  }
+  if (password && password.length < 12) {
+    return { error: "Passwords must be at least 12 characters." };
+  }
+
+  try {
+    if (id) {
+      const existing = await prisma.adminUser.findUnique({ where: { id } });
+      if (!existing) return { error: "That desk account no longer exists." };
+      if (email !== existing.email) {
+        const duplicate = await prisma.adminUser.findUnique({ where: { email } });
+        if (duplicate) return { error: "That email is already assigned to another desk account." };
+      }
+      await prisma.adminUser.update({
+        where: { id },
+        data: {
+          name,
+          email,
+          mediaUrls: attachedMedia,
+          ...(password ? { passwordHash: await bcrypt.hash(password, 12) } : {}),
+        },
+      });
+    } else {
+      await prisma.adminUser.create({
+        data: { name, email, mediaUrls: attachedMedia, passwordHash: await bcrypt.hash(password, 12) },
+      });
+    }
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return { error: "That email is already assigned to another desk account." };
+    }
+    return fail(error, "Could not save the desk account.");
+  }
+
+  revalidateSite();
+  return { success: id ? "Desk account saved." : "Desk account created." };
+}
+
+export async function deleteAdminUser(_: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing desk account." };
+  if (id === session.user.id) return { error: "You cannot delete the account you are currently using." };
+
+  const count = await prisma.adminUser.count();
+  if (count <= 1) return { error: "At least one desk account must remain." };
+
+  try {
+    await prisma.adminUser.delete({ where: { id } });
+  } catch (error) {
+    return fail(error, "Could not delete that desk account.");
+  }
+
+  revalidateSite();
+  return { success: "Desk account deleted." };
 }
 
 export async function updateService(formData: FormData) {

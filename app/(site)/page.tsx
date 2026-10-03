@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Check, Clock3, MapPin, Minus, Phone, Plus } from "lucide-react";
 import { ContactBookingForm } from "@/components/ContactBookingForm";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { HeroCarousel } from "@/components/HeroCarousel";
 import { ReviewCarousel } from "@/components/ReviewCarousel";
+import { ServiceMenu } from "@/components/ServiceMenu";
+import { SlideDown } from "@/components/SlideDown";
 import { TeamCarousel } from "@/components/TeamCarousel";
 import { getPublicCatalog } from "@/lib/data";
 import { formatFromPrice } from "@/lib/time";
@@ -72,14 +75,14 @@ export default async function HomePage({
             ]}
           />
           <div className="hero-copy">
-            <h1>Hair, skin, and bridal beauty in one calm studio.</h1>
-            <p>Senior stylists, sanitized tools, and time enough to get the color right.</p>
+            <h1>Beauty, at a gentler pace.</h1>
+            <p>Thoughtful hair, skin, nail, and bridal care in a calm Jhamsikhel studio—personalized for you and made to feel good long after you leave.</p>
             <div className="hero-actions">
               <a className="btn btn-primary" href="#contact">
                 Request an appointment
               </a>
               <a className="btn btn-ghost" href="#services">
-                Explore services
+                Explore services <ArrowUpRight className="hero-explore-arrow" aria-hidden="true" size={17} />
               </a>
             </div>
           </div>
@@ -89,7 +92,7 @@ export default async function HomePage({
           <div className="container trust-row">
             <div className="trust-item">
               <div>
-                <strong data-count="8">8</strong>
+                <strong data-count="8">8<Plus className="trust-plus" aria-hidden="true" /></strong>
                 <span className="trust-label">Years in Jhamsikhel</span>
               </div>
             </div>
@@ -123,28 +126,7 @@ export default async function HomePage({
               <h2>Find your kind of care.</h2>
               <p className="muted">A considered selection of hair, skin, makeup, nail, bridal, and package services, with starting prices shown on each card.</p>
             </div>
-            <div className="card-grid">
-              {categories.map((category) => (
-                <article key={category.id} id={category.slug === "bridal" ? "bridal" : undefined} className="card">
-                  <div className="card-visual">
-                    <div className="card-media">
-                      <img src={category.image} alt={category.name} />
-                    </div>
-                    <span className="card-tag">{formatFromPrice(category.fromPrice)}</span>
-                  </div>
-                  <div className="card-body">
-                    <h3>{category.name}</h3>
-                    <p>
-                      {category.teaser}
-                      {category.featured ? ` ${formatFromPrice(category.fromPrice)}.` : ""}
-                    </p>
-                    <Link className="btn btn-line" href={`/?category=${encodeURIComponent(category.slug)}#contact`}>
-                      Book now
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <ServiceMenu categories={categories} />
           </div>
         </section>
 
@@ -163,26 +145,47 @@ export default async function HomePage({
               </div>
               <div className="ritual-list">
                 {ritualPicks.map(({ category, service, note, detail }, index) => (
-                  <details className={`ritual-item${index === 0 ? " is-featured" : ""}`} key={service.id}>
-                    <summary>
-                      <span className="ritual-number">{String(index + 1).padStart(2, "0")}</span>
-                      <span className="ritual-name">
-                        <strong>{service.name}</strong>
-                        <small>{note}</small>
-                      </span>
-                      <span className="ritual-duration">{service.durationMinutes} mins</span>
-                      <span className="ritual-price">{formatFromPrice(service.price).replace("From ", "")}</span>
-                      <span className="ritual-toggle" aria-hidden="true" />
-                    </summary>
+                  <SlideDown
+                    className={`ritual-item${index === 0 ? " is-featured" : ""}`}
+                    triggerClassName="ritual-item-trigger"
+                    key={service.id}
+                    trigger={{
+                      closed: (
+                        <>
+                          <span className="ritual-number">{String(index + 1).padStart(2, "0")}</span>
+                          <span className="ritual-name">
+                            <strong>{service.name}</strong>
+                            <small>{note}</small>
+                          </span>
+                          <span className="ritual-duration">{service.durationMinutes} mins</span>
+                          <span className="ritual-price">{formatFromPrice(service.price).replace("From ", "")}</span>
+                          <span className="ritual-toggle" aria-hidden="true"><Plus /></span>
+                        </>
+                      ),
+                      open: (
+                        <>
+                          <span className="ritual-number">{String(index + 1).padStart(2, "0")}</span>
+                          <span className="ritual-name">
+                            <strong>{service.name}</strong>
+                            <small>{note}</small>
+                          </span>
+                          <span className="ritual-duration">{service.durationMinutes} mins</span>
+                          <span className="ritual-price">{formatFromPrice(service.price).replace("From ", "")}</span>
+                          <span className="ritual-toggle" aria-hidden="true"><Minus /></span>
+                        </>
+                      ),
+                    }}
+                  >
                     <div className="ritual-detail">
                       <p>{detail}</p>
                       <Link
+                        className="ritual-book-link"
                         href={`/?category=${encodeURIComponent(category.slug)}&treatment=${encodeURIComponent(service.name)}#contact`}
                       >
-                        Book this ritual <span aria-hidden="true">→</span>
+                        Book this ritual <ArrowRight aria-hidden="true" size={16} />
                       </Link>
                     </div>
-                  </details>
+                  </SlideDown>
                 ))}
               </div>
             </div>
@@ -218,20 +221,14 @@ export default async function HomePage({
                       <p className="from">{formatFromPrice(item.fromPrice)}</p>
                       <div className="signature-inclusions">
                         <div className="signature-duration">
-                          <svg viewBox="0 0 20 20" aria-hidden="true">
-                            <circle cx="10" cy="10" r="7.5" />
-                            <path d="M10 5.5v4.8l3 1.8" />
-                          </svg>
+                          <Clock3 aria-hidden="true" />
                           <span>{service?.durationMinutes ? `${service.durationMinutes} minutes` : "Duration varies"}</span>
                         </div>
                         <p className="signature-inclusions-title">Included in this treatment</p>
                         <ul>
                           {includedServices.map((included, includedIndex) => (
                             <li key={`${item.id}-${includedIndex}`}>
-                              <svg viewBox="0 0 20 20" aria-hidden="true">
-                                <circle cx="10" cy="10" r="8" />
-                                <path d="m6.5 10 2.3 2.3 4.8-5" />
-                              </svg>
+                              <Check aria-hidden="true" />
                               <span>{included}</span>
                             </li>
                           ))}
@@ -282,6 +279,9 @@ export default async function HomePage({
               <h2>A smaller room, on purpose.</h2>
               <p>{studio.aboutWords}</p>
               <p>{studio.ownerName} started Liora in Jhamsikhel after years of working rooms that booked too tightly. Color, bridal, skin, and nails share one quiet floor, and every tool is sanitized between guests. We take time with color so it still looks like you on a Tuesday. If a look will not grow out kindly, we say so before the first foil goes in.</p>
+              <Link className="btn btn-primary about-book-cta" href="/#contact">
+                Book an appointment
+              </Link>
             </div>
           </div>
         </section>
@@ -330,15 +330,15 @@ export default async function HomePage({
               <p className="contact-lede">Find us in the heart of Jhamsikhel. Step inside, take a breath, and let us make a little space for you.</p>
               <div className="contact-details">
                 <div className="contact-detail">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>
-                  <div><strong>The studio</strong><span>{studio.address}</span><span>{studio.landmark}.</span></div>
+                  <MapPin aria-hidden="true" />
+                  <div><strong>Availability & address</strong><span>{studio.address}</span><span>{studio.landmark}.</span></div>
                 </div>
                 <div className="contact-detail">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.8c.3-.7 1.1-1.1 1.8-.9l2.2.6c.6.2 1 .7 1.1 1.4l.4 2.4c.1.6-.2 1.2-.7 1.5l-1.3.9a12.6 12.6 0 0 0 5.2 5.2l.9-1.3c.3-.5.9-.8 1.5-.7l2.4.4c.7.1 1.2.5 1.4 1.1l.6 2.2c.2.7-.2 1.5-.9 1.8l-1.6.7c-.8.3-1.6.4-2.4.2C10.2 18.6 5.4 13.8 4.7 7.8c-.2-.8-.1-1.6.2-2.4l.7-1.6Z" /></svg>
+                  <Phone aria-hidden="true" />
                   <div><strong>Direct concierge</strong><a href={studio.phoneHref}>{studio.phone}</a><a href={`mailto:${studio.email}`}>{studio.email}</a></div>
                 </div>
                 <div className="contact-detail">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
+                  <Clock3 aria-hidden="true" />
                   <div><strong>Opening hours</strong><span>Sunday–Friday · 10:00 AM – 7:00 PM</span><span>Saturday · 9:00 AM – 6:00 PM</span></div>
                 </div>
                 <p className="contact-parking">{studio.parking}</p>

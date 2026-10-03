@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
 import { deleteGalleryItem, saveGalleryItem } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
@@ -21,10 +22,7 @@ export default async function AdminGalleryPage() {
           Caption
           <input name="caption" required />
         </label>
-        <label>
-          Image URL
-          <input name="image" required />
-        </label>
+        <MediaField primaryName="image" primaryRequired />
         <label>
           Sort
           <input type="number" name="sortOrder" defaultValue={items.length + 1} />
@@ -44,10 +42,7 @@ export default async function AdminGalleryPage() {
               Caption
               <input name="caption" defaultValue={item.caption} required />
             </label>
-            <label>
-              Image URL
-              <input name="image" defaultValue={item.image} required />
-            </label>
+            <MediaField primaryName="image" initialPrimary={item.image} initialMediaUrls={item.mediaUrls} primaryRequired />
             <label>
               Sort
               <input type="number" name="sortOrder" defaultValue={item.sortOrder} />

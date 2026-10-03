@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { ActionForm } from "@/components/admin/ActionForm";
+import { MediaField } from "@/components/admin/MediaField";
 import { updateDeskAccount, updateStudioSetting } from "@/lib/actions";
 import { getStudio } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
@@ -28,8 +29,6 @@ const studioFields: Array<{ key: keyof Awaited<ReturnType<typeof getStudio>>; la
   { key: "walkIns", label: "Walk-in note", multiline: true },
   { key: "confirmNote", label: "Confirm note", multiline: true },
   { key: "aboutWords", label: "About copy", multiline: true },
-  { key: "aboutImage", label: "About image URL" },
-  { key: "heroImage", label: "Hero image URL" },
   { key: "googleScore", label: "Google score" },
   { key: "googleCount", label: "Google count" },
   { key: "ownerName", label: "Owner name" },
@@ -52,6 +51,14 @@ export default async function AdminSettingsPage() {
 
       <ActionForm action={updateStudioSetting}>
         <h2>Studio details</h2>
+        <MediaField
+          label="Studio images"
+          initialMediaUrls={studio.mediaUrls}
+          primaryFields={[
+            { name: "aboutImage", label: "About image", initialValue: studio.aboutImage, required: true },
+            { name: "heroImage", label: "Hero image", initialValue: studio.heroImage, required: true },
+          ]}
+        />
         {studioFields.map((field) => (
           <label key={field.key}>
             {field.label}
@@ -71,6 +78,7 @@ export default async function AdminSettingsPage() {
         <ActionForm action={updateDeskAccount}>
           <h2>Desk login</h2>
           <p className="muted">Only your signed-in account can be changed here.</p>
+          <MediaField initialMediaUrls={desk.mediaUrls} label="Desk profile media" />
           <label>
             Name
             <input name="name" defaultValue={desk.name} required />

@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { Menu, Phone, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const links = [
   { href: "/#home", id: "home", label: "Home" },
-  { href: "/#services", id: "services", label: "Services" },
-  { href: "/#bridal", id: "bridal", label: "Bridal" },
+  { href: "/#services", id: "services", label: "Our Menu" },
+  { href: "/#signature", id: "signature", label: "Packages" },
+  { href: "/#contact", id: "contact", label: "Availability" },
   { href: "/#gallery", id: "gallery", label: "Gallery" },
   { href: "/#about", id: "about", label: "About" },
-  { href: "/#contact", id: "contact", label: "Contact" },
 ];
 
 const SLIDE_MS = 460;
@@ -171,12 +172,7 @@ export function Header({ shortName, name, phone, phoneHref }: HeaderProps) {
         </nav>
         <div className="header-actions">
           <a className="header-phone" href={phoneHref}>
-            <svg className="header-phone-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M6.6 3.8c.3-.7 1.1-1.1 1.8-.9l2.2.6c.6.2 1 .7 1.1 1.4l.4 2.4c.1.6-.2 1.2-.7 1.5l-1.3.9a12.6 12.6 0 0 0 5.2 5.2l.9-1.3c.3-.5.9-.8 1.5-.7l2.4.4c.7.1 1.2.5 1.4 1.1l.6 2.2c.2.7-.2 1.5-.9 1.8l-1.6.7c-.8.3-1.6.4-2.4.2C10.2 18.6 5.4 13.8 4.7 7.8c-.2-.8-.1-1.6.2-2.4l.7-1.6Z"
-              />
-            </svg>
+            <Phone className="header-phone-icon" aria-hidden="true" />
             {phone}
           </a>
           <Link className="btn btn-primary" href={bookHref}>
@@ -190,7 +186,7 @@ export function Header({ shortName, name, phone, phoneHref }: HeaderProps) {
             aria-label={open ? "Close menu" : "Open menu"}
             onClick={() => setOpen((value) => !value)}
           >
-            <span></span>
+            {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           </button>
         </div>
       </div>

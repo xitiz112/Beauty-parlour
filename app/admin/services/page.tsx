@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MediaField } from "@/components/admin/MediaField";
 import { deleteService, deleteServiceCategory, saveService, saveServiceCategory } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
@@ -29,10 +30,7 @@ export default async function AdminServicesPage() {
           Teaser
           <textarea name="teaser" required />
         </label>
-        <label>
-          Image URL
-          <input name="image" required />
-        </label>
+        <MediaField primaryName="image" primaryRequired />
         <div className="form-row two">
           <label>
             From price (Rs.)
@@ -68,10 +66,7 @@ export default async function AdminServicesPage() {
               Teaser
               <textarea name="teaser" defaultValue={category.teaser} required />
             </label>
-            <label>
-              Image URL
-              <input name="image" defaultValue={category.image} required />
-            </label>
+            <MediaField primaryName="image" initialPrimary={category.image} initialMediaUrls={category.mediaUrls} primaryRequired />
             <div className="form-row two">
               <label>
                 From price (Rs.)
@@ -107,6 +102,7 @@ export default async function AdminServicesPage() {
               Description
               <textarea name="description" />
             </label>
+            <MediaField primaryName="image" />
             <div className="form-row two">
               <label>
                 Minutes
@@ -151,6 +147,7 @@ export default async function AdminServicesPage() {
                   Description
                   <textarea name="description" defaultValue={service.description || ""} />
                 </label>
+                <MediaField primaryName="image" initialPrimary={service.image || ""} initialMediaUrls={service.mediaUrls} />
                 <div className="form-row two">
                   <label>
                     Minutes

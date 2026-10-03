@@ -11,6 +11,7 @@ export const ADMIN_PATHS = [
   "/admin/gallery",
   "/admin/reviews",
   "/admin/content",
+  "/admin/users",
   "/admin/settings",
 ] as const;
 
