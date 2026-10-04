@@ -13,12 +13,20 @@ export const ADMIN_PATHS = [
   "/admin/content",
   "/admin/users",
   "/admin/settings",
+  "/admin/navigation",
+  "/admin/homepage",
 ] as const;
 
 export function revalidateSite() {
   for (const path of [...PUBLIC_PATHS, ...ADMIN_PATHS]) {
     revalidatePath(path);
   }
+}
+
+// Header and footer render on every public page, so refresh the whole site layout.
+export function revalidateLayout() {
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/navigation");
 }
 
 export function text(formData: FormData, key: string) {

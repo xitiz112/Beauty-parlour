@@ -8,7 +8,10 @@ import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Desk settings" };
 
-const studioFields: Array<{ key: keyof Awaited<ReturnType<typeof getStudio>>; label: string; multiline?: boolean }> = [
+type Studio = Awaited<ReturnType<typeof getStudio>>;
+type StudioTextKey = { [K in keyof Studio]: Studio[K] extends string ? K : never }[keyof Studio];
+
+const studioFields: Array<{ key: StudioTextKey; label: string; multiline?: boolean }> = [
   { key: "name", label: "Studio name" },
   { key: "shortName", label: "Short name" },
   { key: "tagline", label: "Tagline" },
@@ -56,7 +59,7 @@ export default async function AdminSettingsPage() {
           initialMediaUrls={studio.mediaUrls}
           primaryFields={[
             { name: "aboutImage", label: "About image", initialValue: studio.aboutImage, required: true },
-            { name: "heroImage", label: "Hero image", initialValue: studio.heroImage, required: true },
+            { name: "heroImage", label: "Fallback hero image (used when Homepage has no slides)", initialValue: studio.heroImage, required: true },
           ]}
         />
         {studioFields.map((field) => (

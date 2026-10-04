@@ -8,3 +8,4 @@ next-env.d.ts
 prisma/dev.db
 .pgdata
 .pg.log
+/.next-verify/

@@ -1,9 +1,13 @@
 import { SiteChrome } from "@/components/SiteChrome";
-import { getStudio } from "@/lib/data";
+import { getBookingOptions, getLayoutContent, getStudio } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const studio = await getStudio();
-  return <SiteChrome studio={studio}>{children}</SiteChrome>;
+  const [studio, booking, layout] = await Promise.all([getStudio(), getBookingOptions(), getLayoutContent()]);
+  return (
+    <SiteChrome studio={studio} booking={booking} layout={layout}>
+      {children}
+    </SiteChrome>
+  );
 }

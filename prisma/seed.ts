@@ -1,5 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import {
+  DEFAULT_HERO_SLIDES,
+  DEFAULT_NAV_LINKS,
+  DEFAULT_RITUAL_PICKS,
+  DEFAULT_SIGNATURE_INCLUSIONS,
+  DEFAULT_TRUST_ITEMS,
+  HOME_SECTIONS,
+} from "../lib/site-defaults";
 import { slugify } from "../lib/time";
 
 const prisma = new PrismaClient();
@@ -34,6 +42,11 @@ async function main() {
       prisma.instagramPost.count(),
       prisma.studioSetting.count(),
       prisma.adminUser.count(),
+      prisma.navLink.count(),
+      prisma.socialLink.count(),
+      prisma.sectionContent.count(),
+      prisma.heroSlide.count(),
+      prisma.trustItem.count(),
     ]);
 
     if (existingRows.some((count) => count > 0)) {
@@ -41,6 +54,10 @@ async function main() {
     }
   }
 
+  await prisma.ritualPick.deleteMany();
+  await prisma.sectionContent.deleteMany();
+  await prisma.heroSlide.deleteMany();
+  await prisma.trustItem.deleteMany();
   await prisma.appointment.deleteMany();
   await prisma.stylistService.deleteMany();
   await prisma.workingHour.deleteMany();
@@ -53,6 +70,8 @@ async function main() {
   await prisma.signature.deleteMany();
   await prisma.instagramPost.deleteMany();
   await prisma.studioSetting.deleteMany();
+  await prisma.navLink.deleteMany();
+  await prisma.socialLink.deleteMany();
   await prisma.adminUser.deleteMany();
 
   const categories = await Promise.all(
@@ -376,6 +395,59 @@ async function main() {
       ownerName: "Anisha Basnet",
       ownerRole: "Creative director",
     },
+  });
+
+  const studioRow = await prisma.studioSetting.findUniqueOrThrow({ where: { id: "studio" } });
+
+  await prisma.sectionContent.createMany({
+    data: HOME_SECTIONS.map((section) => ({
+      key: section.key,
+      ...section.values,
+      body: (section.values.body ?? "").replace("Anisha Basnet", studioRow.ownerName),
+    })),
+  });
+
+  await prisma.heroSlide.createMany({
+    data: [
+      { image: studioRow.heroImage, alt: "Warm salon interior with styling chairs and soft lighting" },
+      ...DEFAULT_HERO_SLIDES,
+    ].map((slide, index) => ({ ...slide, sortOrder: index + 1 })),
+  });
+
+  await prisma.trustItem.createMany({
+    data: DEFAULT_TRUST_ITEMS.map((item, index) => ({ ...item, sortOrder: index + 1 })),
+  });
+
+  for (const [index, pick] of DEFAULT_RITUAL_PICKS.entries()) {
+    const service = await prisma.service.findFirst({
+      where: { name: pick.serviceName, category: { slug: pick.categorySlug } },
+      select: { id: true },
+    });
+    if (service) {
+      await prisma.ritualPick.create({
+        data: { serviceId: service.id, note: pick.note, detail: pick.detail, sortOrder: index + 1 },
+      });
+    }
+  }
+
+  for (const [treatmentName, inclusions] of Object.entries(DEFAULT_SIGNATURE_INCLUSIONS)) {
+    await prisma.signature.updateMany({ where: { treatmentName }, data: { inclusions } });
+  }
+
+  await prisma.navLink.createMany({
+    data: DEFAULT_NAV_LINKS.map((link) => ({
+      ...link,
+      sortOrder: DEFAULT_NAV_LINKS.filter((other) => other.location === link.location).indexOf(link) + 1,
+    })),
+  });
+
+  await prisma.socialLink.createMany({
+    data: [
+      { platform: "instagram", label: "Instagram", href: "https://www.instagram.com/liorastudio.np", sortOrder: 1 },
+      { platform: "facebook", label: "Facebook", href: "https://www.facebook.com/liorastudio", sortOrder: 2 },
+      { platform: "tiktok", label: "TikTok", href: "https://www.tiktok.com/@liorastudio.np", sortOrder: 3 },
+      { platform: "whatsapp", label: "WhatsApp", href: "https://wa.me/9779801234567", sortOrder: 4 },
+    ],
   });
 
   const password = process.env.ADMIN_PASSWORD || "liora-desk";

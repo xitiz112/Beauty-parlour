@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Service, ServiceCategory } from "@prisma/client";
 import { formatMoney } from "@/lib/time";
 import { SlideDown } from "@/components/SlideDown";
@@ -21,8 +20,24 @@ export function ServiceMenu({ categories }: { categories: MenuCategory[] }) {
   const visibleItems = selectedCategory === "all"
     ? allItems
     : allItems.filter(({ category }) => category.slug === selectedCategory);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
 
-  const renderCard = ({ category, service, index }: MenuItem) => {
+  // Replay the card reveal each time the category changes (not on first load).
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const grids = menuRef.current?.querySelectorAll<HTMLElement>(".card-grid") ?? [];
+    grids.forEach((grid) => {
+      grid.classList.remove("is-revealing");
+      void grid.offsetWidth; // force reflow so the animation restarts
+      grid.classList.add("is-revealing");
+    });
+  }, [selectedCategory]);
+
+  const renderCard = ({ category, service, index }: MenuItem, position: number) => {
     const bookingHref = `/?category=${encodeURIComponent(category.slug)}&treatment=${encodeURIComponent(service.name)}#contact`;
 
     return (
@@ -30,6 +45,7 @@ export function ServiceMenu({ categories }: { categories: MenuCategory[] }) {
         key={service.id}
         id={category.slug === "bridal" && index === 0 ? "bridal" : undefined}
         className="card service-card"
+        style={{ "--reveal-index": position % 6 } as React.CSSProperties}
       >
         <div className="card-visual">
           <div className="card-media">
@@ -40,13 +56,10 @@ export function ServiceMenu({ categories }: { categories: MenuCategory[] }) {
           <h3>{service.name}</h3>
           <p>{service.description || category.teaser}</p>
           <div className="service-card-actions">
-            <Link className="btn btn-primary" href={bookingHref}>
+            <Link className="btn btn-primary" href={bookingHref} data-book>
               Book now
             </Link>
             <span className="service-card-price">{formatMoney(service.price)}</span>
-            <Link className="service-card-plus" href={bookingHref} aria-label={`Book ${service.name}`}>
-              <Plus aria-hidden="true" size={19} />
-            </Link>
           </div>
         </div>
       </article>
@@ -54,7 +67,7 @@ export function ServiceMenu({ categories }: { categories: MenuCategory[] }) {
   };
 
   return (
-    <div className="service-menu">
+    <div className="service-menu" ref={menuRef}>
       <div className="service-category-tabs" role="group" aria-label="Filter menu by category">
         <button
           className={selectedCategory === "all" ? "is-active" : ""}

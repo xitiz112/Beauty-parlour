@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   ExternalLink,
+  House,
   Images,
   MessageSquareQuote,
+  PanelsTopLeft,
   PackageOpen,
   Scissors,
   Settings2,
@@ -16,11 +18,13 @@ import {
 
 const links = [
   { href: "/admin", label: "Bookings", icon: CalendarDays },
+  { href: "/admin/homepage", label: "Homepage", icon: House },
   { href: "/admin/services", label: "Services", icon: Scissors },
   { href: "/admin/team", label: "Team", icon: Users },
   { href: "/admin/gallery", label: "Gallery", icon: Images },
   { href: "/admin/reviews", label: "Reviews", icon: MessageSquareQuote },
   { href: "/admin/content", label: "Content", icon: PackageOpen },
+  { href: "/admin/navigation", label: "Header & footer", icon: PanelsTopLeft },
   { href: "/admin/users", label: "Desk users", icon: UserCog },
   { href: "/admin/settings", label: "Settings", icon: Settings2 },
 ];

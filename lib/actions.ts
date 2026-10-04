@@ -1,11 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { AppointmentStatus, Prisma } from "@prisma/client";
+import { AppointmentStatus, NavLocation, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { CredentialsSignin } from "next-auth";
 import { auth, signIn, signOut } from "@/auth";
-import { bool, DEFAULT_HOURS, int, revalidateSite, text, uniqueCategorySlug, uniqueStylistSlug } from "./admin";
+import { bool, DEFAULT_HOURS, int, revalidateLayout, revalidateSite, text, uniqueCategorySlug, uniqueStylistSlug } from "./admin";
+import { HOME_SECTIONS, SOCIAL_PLATFORMS } from "./site-defaults";
 import { prisma } from "./prisma";
 import { bookSlot } from "./slots";
 import { parseDatetimeLocal, parseKathmanduDateTime, timeToMinutes } from "./time";
@@ -104,6 +105,24 @@ function fail(error: unknown, fallback: string) {
 
 async function nextSort(model: { count: () => Promise<number> }) {
   return (await model.count()) + 1;
+}
+
+// One entry per non-empty line of a textarea.
+function lines(formData: FormData, key: string) {
+  return text(formData, key)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function httpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 export async function saveAppointment(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -656,6 +675,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
   const fromPrice = int(formData, "fromPrice");
   const sortOrder = int(formData, "sortOrder");
   const attachedMedia = mediaUrls(formData);
+  const inclusions = lines(formData, "inclusions");
 
   if (!name || !story || !image || !categorySlug || !treatmentName) {
     return { error: "Name, story, image, category, and treatment name are required." };
@@ -679,7 +699,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
   if (id) {
     await prisma.signature.update({
       where: { id },
-      data: { name, story, image, mediaUrls: attachedMedia, categorySlug, treatmentName, fromPrice, sortOrder },
+      data: { name, story, image, mediaUrls: attachedMedia, categorySlug, treatmentName, fromPrice, sortOrder, inclusions },
     });
   } else {
     await prisma.signature.create({
@@ -691,6 +711,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
         categorySlug,
         treatmentName,
         fromPrice,
+        inclusions,
         sortOrder: sortOrder || (await nextSort(prisma.signature)),
       },
     });
@@ -791,6 +812,254 @@ export async function updateStudioSetting(_: ActionState, formData: FormData): P
   });
   revalidateSite();
   return { success: "Studio details saved." };
+}
+
+// --- Homepage ---
+
+export async function updateSection(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const key = text(formData, "key");
+  const section = HOME_SECTIONS.find((item) => item.key === key);
+  if (!section) return { error: "Unknown section." };
+
+  const data = {
+    eyebrow: text(formData, "eyebrow"),
+    title: text(formData, "title"),
+    body: text(formData, "body"),
+    details: text(formData, "details"),
+    ctaLabel: text(formData, "ctaLabel"),
+    secondaryCtaLabel: text(formData, "secondaryCtaLabel"),
+    visible: bool(formData, "visible"),
+  };
+  if ("title" in section.fields && !data.title && key !== "instagram") {
+    return { error: "Heading is required." };
+  }
+  if (Object.values(data).some((value) => typeof value === "string" && value.length > 2000)) {
+    return { error: "Keep each field under 2000 characters." };
+  }
+
+  await prisma.sectionContent.upsert({ where: { key }, update: data, create: { key, ...data } });
+  revalidateSite();
+  return { success: `${section.name} section saved.` };
+}
+
+export async function saveHeroSlide(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const image = text(formData, "image");
+  const alt = text(formData, "alt");
+  const sortOrder = int(formData, "sortOrder");
+  const published = bool(formData, "published");
+  const attachedMedia = mediaUrls(formData);
+
+  if (!image || !httpUrl(image)) return { error: "Upload or paste an image for the slide." };
+  if (!alt) return { error: "Describe the photo for screen readers (alt text)." };
+
+  if (id) {
+    await prisma.heroSlide.update({ where: { id }, data: { image, alt, mediaUrls: attachedMedia, sortOrder, published } });
+  } else {
+    await prisma.heroSlide.create({
+      data: { image, alt, mediaUrls: attachedMedia, published, sortOrder: sortOrder || (await nextSort(prisma.heroSlide)) },
+    });
+  }
+  revalidateSite();
+  return { success: id ? "Slide saved." : "Slide added." };
+}
+
+export async function deleteHeroSlide(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing slide." };
+  await prisma.heroSlide.delete({ where: { id } });
+  revalidateSite();
+  return { success: "Slide deleted." };
+}
+
+export async function saveTrustItem(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const value = text(formData, "value");
+  const suffix = text(formData, "suffix");
+  const label = text(formData, "label");
+  const sortOrder = int(formData, "sortOrder");
+  const published = bool(formData, "published");
+
+  if (!value || !label) return { error: "Value and label are required." };
+  if (value.length > 40 || label.length > 60 || suffix.length > 6) {
+    return { error: "Keep the value under 40, label under 60, and suffix under 6 characters." };
+  }
+
+  if (id) {
+    await prisma.trustItem.update({ where: { id }, data: { value, suffix, label, sortOrder, published } });
+  } else {
+    await prisma.trustItem.create({
+      data: { value, suffix, label, published, sortOrder: sortOrder || (await nextSort(prisma.trustItem)) },
+    });
+  }
+  revalidateSite();
+  return { success: id ? "Fact saved." : "Fact added." };
+}
+
+export async function deleteTrustItem(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing fact." };
+  await prisma.trustItem.delete({ where: { id } });
+  revalidateSite();
+  return { success: "Fact deleted." };
+}
+
+export async function saveRitualPick(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const serviceId = text(formData, "serviceId");
+  const note = text(formData, "note");
+  const detail = text(formData, "detail");
+  const sortOrder = int(formData, "sortOrder");
+  const published = bool(formData, "published");
+
+  if (!serviceId || !note || !detail) return { error: "Treatment, short note, and description are required." };
+  const service = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true } });
+  if (!service) return { error: "That treatment no longer exists." };
+
+  if (id) {
+    await prisma.ritualPick.update({ where: { id }, data: { serviceId, note, detail, sortOrder, published } });
+  } else {
+    await prisma.ritualPick.create({
+      data: { serviceId, note, detail, published, sortOrder: sortOrder || (await nextSort(prisma.ritualPick)) },
+    });
+  }
+  revalidateSite();
+  return { success: id ? "Ritual saved." : "Ritual added." };
+}
+
+export async function deleteRitualPick(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing ritual." };
+  await prisma.ritualPick.delete({ where: { id } });
+  revalidateSite();
+  return { success: "Ritual removed." };
+}
+
+// --- Header & footer ---
+
+const NAV_LOCATIONS = Object.values(NavLocation);
+
+// Site paths (/about, /#contact), in-page anchors, web links, and mail/phone links only.
+function safeHref(value: string) {
+  if (!value || value.length > 2048) return null;
+  if (value.startsWith("/") || value.startsWith("#")) return value.startsWith("//") ? null : value;
+  try {
+    const url = new URL(value);
+    return ["https:", "http:", "mailto:", "tel:"].includes(url.protocol) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveNavLink(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const location = text(formData, "location") as NavLocation;
+  const label = text(formData, "label");
+  const href = safeHref(text(formData, "href"));
+  const newTab = bool(formData, "newTab");
+  const opensBooking = bool(formData, "opensBooking");
+  const published = bool(formData, "published");
+  const sortOrder = int(formData, "sortOrder");
+
+  if (!NAV_LOCATIONS.includes(location)) return { error: "Choose where the link appears." };
+  if (!label) return { error: "Label is required." };
+  if (label.length > 60) return { error: "Keep the label under 60 characters." };
+  if (!href) return { error: "Enter a link like /#services, /privacy, https://…, mailto: or tel:." };
+
+  try {
+    if (id) {
+      await prisma.navLink.update({ where: { id }, data: { location, label, href, newTab, opensBooking, published, sortOrder } });
+    } else {
+      const count = await prisma.navLink.count({ where: { location } });
+      await prisma.navLink.create({
+        data: { location, label, href, newTab, opensBooking, published, sortOrder: sortOrder || count + 1 },
+      });
+    }
+  } catch (error) {
+    return fail(error, "Could not save the link.");
+  }
+
+  revalidateLayout();
+  return { success: id ? "Link saved." : "Link added." };
+}
+
+export async function deleteNavLink(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing link." };
+  await prisma.navLink.delete({ where: { id } });
+  revalidateLayout();
+  return { success: "Link deleted." };
+}
+
+export async function saveSocialLink(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const platform = text(formData, "platform");
+  const href = safeHref(text(formData, "href"));
+  const published = bool(formData, "published");
+  const sortOrder = int(formData, "sortOrder");
+  const known = SOCIAL_PLATFORMS.find((item) => item.value === platform);
+  const label = text(formData, "label") || known?.label || "";
+
+  if (!known) return { error: "Choose a platform." };
+  if (!href) return { error: "Enter the full profile link, starting with https://." };
+
+  try {
+    if (id) {
+      await prisma.socialLink.update({ where: { id }, data: { platform, label, href, published, sortOrder } });
+    } else {
+      await prisma.socialLink.create({
+        data: { platform, label, href, published, sortOrder: sortOrder || (await nextSort(prisma.socialLink)) },
+      });
+    }
+  } catch (error) {
+    return fail(error, "Could not save the social link.");
+  }
+
+  revalidateLayout();
+  return { success: id ? "Social link saved." : "Social link added." };
+}
+
+export async function deleteSocialLink(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!id) return { error: "Missing social link." };
+  await prisma.socialLink.delete({ where: { id } });
+  revalidateLayout();
+  return { success: "Social link deleted." };
+}
+
+export async function updateLayoutText(_: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const fields = [
+    "logoSubtitle",
+    "headerCtaLabel",
+    "footerVisitTitle",
+    "footerExploreTitle",
+    "footerSocialTitle",
+    "copyrightText",
+  ] as const;
+
+  const data: Prisma.StudioSettingUpdateInput = { showHeaderPhone: bool(formData, "showHeaderPhone") };
+  for (const key of fields) {
+    const value = text(formData, key);
+    if (!value) return { error: "All header and footer text fields are required." };
+    if (value.length > 120) return { error: "Keep each text field under 120 characters." };
+    data[key] = value;
+  }
+
+  await prisma.studioSetting.update({ where: { id: "studio" }, data });
+  revalidateLayout();
+  return { success: "Header and footer text saved." };
 }
 
 export async function updateDeskAccount(_: ActionState, formData: FormData): Promise<ActionState> {

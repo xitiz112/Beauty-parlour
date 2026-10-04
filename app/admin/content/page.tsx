@@ -111,7 +111,7 @@ export default async function AdminContentPage() {
         </div>
       ))}
 
-      <h2>Homepage signatures</h2>
+      <h2>Homepage packages</h2>
       <p className="muted">Category slug and treatment name must match a real menu item so “Book this” still prefills.</p>
       <ActionForm action={saveSignature}>
         <h3>Add signature</h3>
@@ -122,6 +122,10 @@ export default async function AdminContentPage() {
         <label>
           Story
           <textarea name="story" required />
+        </label>
+        <label>
+          Included in this treatment <span className="muted">(one per line)</span>
+          <textarea name="inclusions" rows={3} placeholder={"Consultation\nMain treatment\nFinishing"} />
         </label>
         <MediaField primaryName="image" primaryRequired />
         <div className="form-row two">
@@ -166,6 +170,10 @@ export default async function AdminContentPage() {
             <label>
               Story
               <textarea name="story" defaultValue={item.story} required />
+            </label>
+            <label>
+              Included in this treatment <span className="muted">(one per line)</span>
+              <textarea name="inclusions" rows={3} defaultValue={item.inclusions.join("\n")} />
             </label>
             <MediaField primaryName="image" initialPrimary={item.image} initialMediaUrls={item.mediaUrls} primaryRequired />
             <div className="form-row two">
