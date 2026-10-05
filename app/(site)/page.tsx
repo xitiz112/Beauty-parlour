@@ -101,7 +101,7 @@ export default async function HomePage({
                   <h2>{rituals.title}</h2>
                 </div>
                 <div className="ritual-list">
-                  {ritualPicks.map(({ id, service, note, detail }, index) => {
+                  {ritualPicks.map(({ id, service, note, detail, price }, index) => {
                     const row = (toggle: React.ReactNode) => (
                       <>
                         <span className="ritual-number">{String(index + 1).padStart(2, "0")}</span>
@@ -110,7 +110,7 @@ export default async function HomePage({
                           <small>{note}</small>
                         </span>
                         <span className="ritual-duration">{service.durationMinutes} mins</span>
-                        <span className="ritual-price">{formatFromPrice(service.price).replace("From ", "")}</span>
+                        <span className="ritual-price">{formatFromPrice(price ?? service.price).replace("From ", "")}</span>
                         <span className="ritual-toggle" aria-hidden="true">{toggle}</span>
                       </>
                     );

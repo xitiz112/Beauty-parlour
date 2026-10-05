@@ -1,4 +1,5 @@
 import type { StudioSetting } from "@prisma/client";
+import { Phone } from "lucide-react";
 import type { getBookingOptions, LayoutContent } from "@/lib/data";
 import { BookingModal } from "./BookingModal";
 import { Footer } from "./Footer";
@@ -35,6 +36,10 @@ export function SiteChrome({
       />
       {children}
       <Footer studio={studio} content={layout} />
+      <a className="call-float" href={studio.phoneHref} aria-label={`Call us at ${studio.phone}`}>
+        <Phone aria-hidden="true" />
+        <span className="whatsapp-float-label">Call us</span>
+      </a>
       <a
         className="whatsapp-float"
         href={`${studio.whatsappHref}?text=${encodeURIComponent(`Hello ${studio.name}, I’d like to ask about an appointment.`)}`}

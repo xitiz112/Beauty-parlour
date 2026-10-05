@@ -5,15 +5,33 @@ export const runtime = "nodejs";
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
-export async function POST(request: Request) {
+// Why uploads would be refused right now, or null if they're allowed.
+async function uploadBlocker() {
   const session = await auth();
   if (!session?.user) {
-    return Response.json({ error: "Sign in to upload media." }, { status: 401 });
+    return { session: null, error: Response.json({ error: "Your admin session has expired. Sign in again to upload media." }, { status: 401 }) };
   }
-
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return Response.json({ error: "Blob storage is not configured on this deployment." }, { status: 503 });
+    return {
+      session,
+      error: Response.json(
+        { error: "Uploads aren't set up on this deployment: add BLOB_READ_WRITE_TOKEN to its environment variables and redeploy." },
+        { status: 503 },
+      ),
+    };
   }
+  return { session, error: null };
+}
+
+// The Blob client only reports "Failed to retrieve the client token", so the media field asks here for the real reason.
+export async function GET() {
+  const { error } = await uploadBlocker();
+  return error ?? Response.json({ ok: true });
+}
+
+export async function POST(request: Request) {
+  const { session, error } = await uploadBlocker();
+  if (error) return error;
 
   try {
     const body = (await request.json()) as HandleUploadBody;
@@ -28,14 +46,14 @@ export async function POST(request: Request) {
           allowedContentTypes: ["image/*", "video/mp4", "video/webm"],
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: true,
-          tokenPayload: session.user.id,
+          tokenPayload: session?.user?.id,
         };
       },
     });
     return Response.json(response);
-  } catch (error) {
+  } catch (uploadError) {
     return Response.json(
-      { error: error instanceof Error ? error.message : "Upload could not be authorized." },
+      { error: uploadError instanceof Error ? uploadError.message : "Upload could not be authorized." },
       { status: 400 },
     );
   }

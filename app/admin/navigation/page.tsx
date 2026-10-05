@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { NavLink, NavLocation, SocialLink } from "@prisma/client";
+import type { NavLocation } from "@prisma/client";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { FormActions } from "@/components/admin/AdminList";
+import { editorKeys, MasterDetail, mdHref, resolveSelection, type MDGroup } from "@/components/admin/MasterDetail";
 import {
   deleteNavLink,
   deleteSocialLink,
@@ -16,93 +17,75 @@ import { SOCIAL_PLATFORMS } from "@/lib/site-defaults";
 
 export const metadata: Metadata = { title: "Desk header & footer" };
 
-const LINK_GROUPS: Array<{ location: NavLocation; title: string; hint: string }> = [
+const BASE = "/admin/navigation";
+
+const LINK_GROUPS: Array<{ location: NavLocation; label: string; hint: string }> = [
   {
     location: "header",
-    title: "Header menu",
-    hint: "The pill menu at the top of every page, and the mobile menu. Use /#section links to scroll to a homepage section.",
+    label: "Header menu",
+    hint: "The pill menu at the top of every page and the mobile menu. Use /#section links to scroll to a homepage section.",
   },
-  { location: "footer_explore", title: "Footer links", hint: "The link column in the footer." },
-  { location: "footer_legal", title: "Footer legal links", hint: "The small links beside the copyright line." },
+  { location: "footer_explore", label: "Footer links", hint: "The link column in the footer." },
+  { location: "footer_legal", label: "Legal links", hint: "The small links beside the copyright line." },
 ];
 
-function NavLinkFields({ link, location, nextSort }: { link?: NavLink; location: NavLocation; nextSort: number }) {
-  return (
-    <>
-      {link ? <input type="hidden" name="id" value={link.id} /> : null}
-      <input type="hidden" name="location" value={location} />
-      <div className="admin-link-grid">
-        <label>
-          Label
-          <input name="label" defaultValue={link?.label} maxLength={60} required />
-        </label>
-        <label>
-          Link
-          <input name="href" defaultValue={link?.href} placeholder="/#services or https://…" required />
-        </label>
-        <label className="admin-link-sort">
-          Order
-          <input type="number" name="sortOrder" defaultValue={link?.sortOrder ?? nextSort} />
-        </label>
-      </div>
-      <div className="admin-link-options">
-        <label className="inline-check">
-          <input type="checkbox" name="published" defaultChecked={link?.published ?? true} /> Visible
-        </label>
-        <label className="inline-check">
-          <input type="checkbox" name="opensBooking" defaultChecked={link?.opensBooking} /> Opens booking popup
-        </label>
-        <label className="inline-check">
-          <input type="checkbox" name="newTab" defaultChecked={link?.newTab} /> Open in new tab
-        </label>
-      </div>
-    </>
-  );
-}
-
-function SocialLinkFields({ social, nextSort }: { social?: SocialLink; nextSort: number }) {
-  return (
-    <>
-      {social ? <input type="hidden" name="id" value={social.id} /> : null}
-      <div className="admin-link-grid">
-        <label>
-          Platform
-          <select name="platform" defaultValue={social?.platform ?? "instagram"} required>
-            {SOCIAL_PLATFORMS.map((platform) => (
-              <option key={platform.value} value={platform.value}>
-                {platform.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Profile link
-          <input name="href" type="url" defaultValue={social?.href} placeholder="https://…" required />
-        </label>
-        <label className="admin-link-sort">
-          Order
-          <input type="number" name="sortOrder" defaultValue={social?.sortOrder ?? nextSort} />
-        </label>
-      </div>
-      <div className="admin-link-options">
-        <label>
-          Screen-reader label <span className="muted">(optional)</span>
-          <input name="label" defaultValue={social?.label} placeholder="Defaults to the platform name" />
-        </label>
-        <label className="inline-check">
-          <input type="checkbox" name="published" defaultChecked={social?.published ?? true} /> Visible
-        </label>
-      </div>
-    </>
-  );
-}
-
-export default async function AdminNavigationPage() {
+export default async function AdminNavigationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ group?: string; edit?: string }>;
+}) {
+  const params = await searchParams;
   const [studio, navLinks, socialLinks] = await Promise.all([
     getStudio(),
     prisma.navLink.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
     prisma.socialLink.findMany({ orderBy: [{ sortOrder: "asc" }, { label: "asc" }] }),
   ]);
+  const platformLabel = (value: string) => SOCIAL_PLATFORMS.find((item) => item.value === value)?.label ?? value;
+
+  const groups: MDGroup[] = [
+    {
+      key: "text",
+      label: "Text",
+      noun: "text",
+      canAdd: false,
+      items: [{ id: "layout", title: "Header & footer text", subtitle: `${studio.logoSubtitle} · ${studio.headerCtaLabel}` }],
+    },
+    ...LINK_GROUPS.map((group) => ({
+      key: group.location,
+      label: group.label,
+      noun: "link",
+      items: navLinks
+        .filter((link) => link.location === group.location)
+        .map((link) => ({
+          id: link.id,
+          title: link.label,
+          subtitle: link.href,
+          meta: `#${link.sortOrder}`,
+          hidden: !link.published,
+        })),
+    })),
+    {
+      key: "social",
+      label: "Social icons",
+      noun: "social icon",
+      items: socialLinks.map((social) => ({
+        id: social.id,
+        title: platformLabel(social.platform),
+        subtitle: social.href,
+        meta: `#${social.sortOrder}`,
+        hidden: !social.published,
+      })),
+    },
+  ];
+  const selection = resolveSelection(groups, params);
+  const { key, deleteFormId } = editorKeys(selection);
+  const groupKey = selection.group.key;
+  const createdHref = `${BASE}?group=${groupKey}&edit=`;
+  const listHref = mdHref(BASE, { group: groupKey });
+  const linkGroup = LINK_GROUPS.find((group) => group.location === groupKey);
+  const link = linkGroup ? navLinks.find((entry) => entry.id === selection.item?.id) : undefined;
+  const social = groupKey === "social" ? socialLinks.find((entry) => entry.id === selection.item?.id) : undefined;
+  const groupSize = selection.group.items.length;
 
   return (
     <main>
@@ -114,104 +97,136 @@ export default async function AdminNavigationPage() {
         </p>
       </section>
 
-      <h2>Text</h2>
-      <ActionForm action={updateLayoutText}>
-        <div className="form-row two">
-          <label>
-            Logo subtitle
-            <input name="logoSubtitle" defaultValue={studio.logoSubtitle} required />
-          </label>
-          <label>
-            Header button label
-            <input name="headerCtaLabel" defaultValue={studio.headerCtaLabel} required />
-          </label>
-        </div>
-        <label className="inline-check">
-          <input type="checkbox" name="showHeaderPhone" defaultChecked={studio.showHeaderPhone} /> Show phone number in the
-          header (large screens)
-        </label>
-        <div className="form-row two">
-          <label>
-            Footer contact heading
-            <input name="footerVisitTitle" defaultValue={studio.footerVisitTitle} required />
-          </label>
-          <label>
-            Footer links heading
-            <input name="footerExploreTitle" defaultValue={studio.footerExploreTitle} required />
-          </label>
-        </div>
-        <div className="form-row two">
-          <label>
-            Footer social heading
-            <input name="footerSocialTitle" defaultValue={studio.footerSocialTitle} required />
-          </label>
-          <label>
-            Copyright text <span className="muted">(after “© {new Date().getFullYear()} {studio.name}.”)</span>
-            <input name="copyrightText" defaultValue={studio.copyrightText} required />
-          </label>
-        </div>
-        <button className="btn btn-primary" type="submit">
-          Save text
-        </button>
-      </ActionForm>
+      <MasterDetail basePath={BASE} groups={groups} selection={selection}>
+        {groupKey === "text" ? (
+          <ActionForm key={key} action={updateLayoutText}>
+            <div className="admin-fields">
+              <label>
+                Logo subtitle
+                <input name="logoSubtitle" defaultValue={studio.logoSubtitle} required />
+              </label>
+              <label>
+                Header button label
+                <input name="headerCtaLabel" defaultValue={studio.headerCtaLabel} required />
+              </label>
+              <label>
+                Footer contact heading
+                <input name="footerVisitTitle" defaultValue={studio.footerVisitTitle} required />
+              </label>
+              <label>
+                Footer links heading
+                <input name="footerExploreTitle" defaultValue={studio.footerExploreTitle} required />
+              </label>
+              <label>
+                Footer social heading
+                <input name="footerSocialTitle" defaultValue={studio.footerSocialTitle} required />
+              </label>
+              <label>
+                Copyright text
+                <input name="copyrightText" defaultValue={studio.copyrightText} required />
+              </label>
+            </div>
+            <p className="admin-note">
+              The copyright line reads “© {new Date().getFullYear()} {studio.name}. {studio.copyrightText}”
+            </p>
+            <label className="inline-check">
+              <input type="checkbox" name="showHeaderPhone" defaultChecked={studio.showHeaderPhone} /> Show the phone number
+              in the header (large screens)
+            </label>
+            <FormActions />
+          </ActionForm>
+        ) : null}
 
-      {LINK_GROUPS.map((group) => {
-        const links = navLinks.filter((link) => link.location === group.location);
-        return (
-          <section key={group.location} className="admin-link-section">
-            <h2>{group.title}</h2>
-            <p className="muted">{group.hint}</p>
-            {links.length === 0 ? <p className="muted">No links yet — this area is hidden on the site.</p> : null}
-            {links.map((link) => (
-              <div key={link.id} className={`admin-link-card${link.published ? "" : " is-hidden"}`}>
-                <ActionForm action={saveNavLink}>
-                  <NavLinkFields link={link} location={group.location} nextSort={links.length + 1} />
-                  <button className="btn btn-line" type="submit">
-                    Save
-                  </button>
-                </ActionForm>
-                <ActionForm action={deleteNavLink} className="admin-link-delete">
-                  <input type="hidden" name="id" value={link.id} />
-                  <ConfirmSubmit label="Delete" message={`Delete the “${link.label}” link?`} />
-                </ActionForm>
+        {linkGroup ? (
+          <>
+            <p className="admin-note">{linkGroup.hint}</p>
+            <ActionForm key={key} action={saveNavLink} createdHref={createdHref}>
+              {link ? <input type="hidden" name="id" value={link.id} /> : null}
+              <input type="hidden" name="location" value={linkGroup.location} />
+              <div className="admin-fields">
+                <label>
+                  Label
+                  <input name="label" defaultValue={link?.label} maxLength={60} required />
+                </label>
+                <label>
+                  Order
+                  <input type="number" name="sortOrder" defaultValue={link?.sortOrder ?? groupSize + 1} />
+                </label>
+                <label className="is-wide">
+                  Link
+                  <input name="href" defaultValue={link?.href} placeholder="/#services, /privacy or https://…" required />
+                </label>
               </div>
-            ))}
-            <ActionForm action={saveNavLink} className="admin-form admin-link-add">
-              <h3>Add link</h3>
-              <NavLinkFields location={group.location} nextSort={links.length + 1} />
-              <button className="btn btn-primary" type="submit">
-                Add link
-              </button>
+              <div className="admin-link-options">
+                <label className="inline-check">
+                  <input type="checkbox" name="published" defaultChecked={link?.published ?? true} /> Visible
+                </label>
+                <label className="inline-check">
+                  <input type="checkbox" name="opensBooking" defaultChecked={link?.opensBooking} /> Opens booking popup
+                </label>
+                <label className="inline-check">
+                  <input type="checkbox" name="newTab" defaultChecked={link?.newTab} /> Open in new tab
+                </label>
+              </div>
+              <FormActions
+                saveLabel={link ? "Save changes" : "Add link"}
+                deleteFormId={link ? deleteFormId : undefined}
+                deleteMessage={`Delete the “${link?.label ?? ""}” link?`}
+              />
             </ActionForm>
-          </section>
-        );
-      })}
+            {link ? (
+              <ActionForm key={`delete-${selection.group.key}`} id={deleteFormId} action={deleteNavLink} className="admin-delete-form" successHref={listHref}>
+                <input type="hidden" name="id" value={link.id} />
+              </ActionForm>
+            ) : null}
+          </>
+        ) : null}
 
-      <section className="admin-link-section">
-        <h2>Social icons</h2>
-        <p className="muted">The round icons in the footer. Hidden icons stay saved but don’t show on the site.</p>
-        {socialLinks.map((social) => (
-          <div key={social.id} className={`admin-link-card${social.published ? "" : " is-hidden"}`}>
-            <ActionForm action={saveSocialLink}>
-              <SocialLinkFields social={social} nextSort={socialLinks.length + 1} />
-              <button className="btn btn-line" type="submit">
-                Save
-              </button>
+        {groupKey === "social" ? (
+          <>
+            <ActionForm key={key} action={saveSocialLink} createdHref={createdHref}>
+              {social ? <input type="hidden" name="id" value={social.id} /> : null}
+              <div className="admin-fields">
+                <label>
+                  Platform
+                  <select name="platform" defaultValue={social?.platform ?? "instagram"} required>
+                    {SOCIAL_PLATFORMS.map((platform) => (
+                      <option key={platform.value} value={platform.value}>
+                        {platform.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Order
+                  <input type="number" name="sortOrder" defaultValue={social?.sortOrder ?? groupSize + 1} />
+                </label>
+                <label className="is-wide">
+                  Profile link
+                  <input name="href" type="url" defaultValue={social?.href} placeholder="https://…" required />
+                </label>
+                <label className="is-wide">
+                  Screen-reader label <span className="muted">(optional)</span>
+                  <input name="label" defaultValue={social?.label} placeholder="Defaults to the platform name" />
+                </label>
+              </div>
+              <label className="inline-check">
+                <input type="checkbox" name="published" defaultChecked={social?.published ?? true} /> Visible in the footer
+              </label>
+              <FormActions
+                saveLabel={social ? "Save changes" : "Add icon"}
+                deleteFormId={social ? deleteFormId : undefined}
+                deleteMessage={`Delete the ${social?.label ?? ""} icon?`}
+              />
             </ActionForm>
-            <ActionForm action={deleteSocialLink} className="admin-link-delete">
-              <input type="hidden" name="id" value={social.id} />
-              <ConfirmSubmit label="Delete" message={`Delete the ${social.label} icon?`} />
-            </ActionForm>
-          </div>
-        ))}
-        <ActionForm action={saveSocialLink} className="admin-form admin-link-add">
-          <h3>Add social icon</h3>
-          <SocialLinkFields nextSort={socialLinks.length + 1} />
-          <button className="btn btn-primary" type="submit">
-            Add icon
-          </button>
-        </ActionForm>
-      </section>
+            {social ? (
+              <ActionForm key={`delete-${selection.group.key}`} id={deleteFormId} action={deleteSocialLink} className="admin-delete-form" successHref={listHref}>
+                <input type="hidden" name="id" value={social.id} />
+              </ActionForm>
+            ) : null}
+          </>
+        ) : null}
+      </MasterDetail>
     </main>
   );
 }

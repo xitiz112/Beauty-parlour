@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppointmentStatus, NavLocation, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -8,12 +9,15 @@ import { auth, signIn, signOut } from "@/auth";
 import { bool, DEFAULT_HOURS, int, revalidateLayout, revalidateSite, text, uniqueCategorySlug, uniqueStylistSlug } from "./admin";
 import { HOME_SECTIONS, SOCIAL_PLATFORMS } from "./site-defaults";
 import { prisma } from "./prisma";
+import { allowAppointmentRequest } from "./rate-limit";
 import { bookSlot } from "./slots";
 import { parseDatetimeLocal, parseKathmanduDateTime, timeToMinutes } from "./time";
 
 export type ActionState = {
   error?: string;
   success?: string;
+  /** Id of a record the action just created, so the admin can open it. */
+  id?: string;
 };
 
 const BLOCKING: AppointmentStatus[] = ["pending", "confirmed"];
@@ -65,6 +69,64 @@ export async function createBooking(_: ActionState, formData: FormData): Promise
   }
 
   return { success: "Request received. We will confirm by phone or WhatsApp." };
+}
+
+// Public "Request an appointment" form: saves a pending appointment for the desk to confirm.
+export async function requestAppointment(_: ActionState, formData: FormData): Promise<ActionState> {
+  // Bots fill every field; people never see this one.
+  if (text(formData, "website")) return { success: "Request received." };
+
+  const visitor = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!allowAppointmentRequest(visitor)) {
+    return { error: "Too many requests from this device. Please call or WhatsApp us instead." };
+  }
+
+  const guestName = text(formData, "name");
+  const phone = text(formData, "phone");
+  const serviceId = text(formData, "serviceId");
+  const stylistId = text(formData, "stylistId") || null;
+  const date = text(formData, "date");
+  const time = text(formData, "time");
+  const notes = text(formData, "notes");
+
+  if (!guestName || !phone || !serviceId || !date || !time) {
+    return { error: "Please add your name, phone number, treatment, and a preferred date and time." };
+  }
+  if (guestName.length > 80 || notes.length > 1000) return { error: "Please shorten your name or notes." };
+  if (!/^\+?[\d\s\-()]{7,20}$/.test(phone)) return { error: "Please enter a valid phone number." };
+
+  const startsAt = parseKathmanduDateTime(date, time);
+  if (!startsAt) return { error: "Please choose a valid date and time." };
+  if (startsAt.getTime() < Date.now()) return { error: "Please choose a time in the future." };
+  if (startsAt.getTime() > Date.now() + 365 * 24 * 60 * 60 * 1000) {
+    return { error: "We take requests up to a year ahead." };
+  }
+
+  const service = await prisma.service.findFirst({
+    where: { id: serviceId, published: true },
+    select: { id: true, durationMinutes: true, stylists: { select: { stylistId: true } } },
+  });
+  if (!service) return { error: "That treatment is no longer available. Please choose another." };
+  if (stylistId) {
+    const stylist = await prisma.stylist.findFirst({ where: { id: stylistId, published: true }, select: { id: true } });
+    if (!stylist) return { error: "That stylist is no longer available. Please choose another or any stylist." };
+  }
+
+  await prisma.appointment.create({
+    data: {
+      guestName,
+      phone,
+      notes: notes || null,
+      serviceId: service.id,
+      stylistId,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + service.durationMinutes * 60 * 1000),
+      status: "pending",
+    },
+  });
+
+  revalidateSite();
+  return { success: "Request received." };
 }
 
 export async function loginAdmin(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -146,8 +208,9 @@ export async function saveAppointment(_: ActionState, formData: FormData): Promi
     return { error: "Guest name, phone, treatment, stylist, date, and time are required." };
   }
 
+  let savedId = id;
   try {
-    await bookSlot({
+    const saved = await bookSlot({
       guestName,
       phone,
       email,
@@ -161,12 +224,13 @@ export async function saveAppointment(_: ActionState, formData: FormData): Promi
       excludeAppointmentId: id || undefined,
       mediaUrls: attachedMedia,
     });
+    savedId = saved.id;
   } catch (error) {
     return fail(error, "Could not save that booking.");
   }
 
   revalidateSite();
-  redirect(`/admin?date=${date}`);
+  redirect(`/admin?date=${date}&edit=${savedId}`);
 }
 
 export async function deleteAppointment(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -182,7 +246,8 @@ export async function deleteAppointment(_: ActionState, formData: FormData): Pro
 
   revalidateSite();
   const date = text(formData, "date");
-  if (date) redirect(`/admin?date=${encodeURIComponent(date)}`);
+  const group = text(formData, "group") === "requests" ? "&group=requests" : "";
+  if (date) redirect(`/admin?date=${encodeURIComponent(date)}${group}`);
   return { success: "Appointment deleted." };
 }
 
@@ -193,6 +258,10 @@ export async function updateAppointmentStatus(formData: FormData) {
   const date = text(formData, "date");
   const params = new URLSearchParams();
   if (date) params.set("date", date);
+  // Stay on the list (day or requests) and the booking that was changed.
+  const group = text(formData, "group");
+  if (group === "requests") params.set("group", group);
+  if (id) params.set("edit", id);
   const back = params.size ? `/admin?${params}` : "/admin";
 
   if (!id || !STATUSES.includes(statusRaw)) {
@@ -206,7 +275,12 @@ export async function updateAppointmentStatus(formData: FormData) {
     redirect(`/admin?${params}`);
   }
 
-  if (BLOCKING.includes(statusRaw)) {
+  if (statusRaw !== "pending" && statusRaw !== "cancelled" && !row.stylistId) {
+    params.set("error", "Assign a stylist to this booking first (edit it and choose a chair).");
+    redirect(`/admin?${params}`);
+  }
+
+  if (BLOCKING.includes(statusRaw) && row.stylistId) {
     const clash = await prisma.appointment.findFirst({
       where: {
         stylistId: row.stylistId,
@@ -229,6 +303,7 @@ export async function updateAppointmentStatus(formData: FormData) {
 
 export async function saveServiceCategory(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const name = text(formData, "name");
   const teaser = text(formData, "teaser");
@@ -254,7 +329,7 @@ export async function saveServiceCategory(_: ActionState, formData: FormData): P
         data: { name, teaser, image, mediaUrls: attachedMedia, fromPrice, sortOrder, featured, ...(slug ? { slug } : {}) },
       });
     } else {
-      await prisma.serviceCategory.create({
+      createdId = (await prisma.serviceCategory.create({
         data: {
           name,
           teaser,
@@ -265,14 +340,14 @@ export async function saveServiceCategory(_: ActionState, formData: FormData): P
           featured,
           slug: await uniqueCategorySlug(slugInput || name),
         },
-      });
+      })).id;
     }
   } catch (error) {
     return fail(error, "Could not save that category.");
   }
 
   revalidateSite();
-  return { success: id ? "Category saved." : "Category added." };
+  return { success: id ? "Category saved." : "Category added.", id: createdId };
 }
 
 export async function deleteServiceCategory(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -292,6 +367,7 @@ export async function deleteServiceCategory(_: ActionState, formData: FormData):
 
 export async function saveService(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const categoryId = text(formData, "categoryId");
   const name = text(formData, "name");
@@ -323,7 +399,7 @@ export async function saveService(_: ActionState, formData: FormData): Promise<A
         data: { categoryId, name, description: description || null, image: image || null, mediaUrls: attachedMedia, durationMinutes, price, sortOrder, published },
       });
     } else {
-      await prisma.service.create({
+      createdId = (await prisma.service.create({
         data: {
           categoryId,
           name,
@@ -335,14 +411,14 @@ export async function saveService(_: ActionState, formData: FormData): Promise<A
           sortOrder: sortOrder || (await prisma.service.count({ where: { categoryId } })) + 1,
           published,
         },
-      });
+      })).id;
     }
   } catch (error) {
     return fail(error, "Could not save that treatment.");
   }
 
   revalidateSite();
-  return { success: id ? "Treatment saved." : "Treatment added." };
+  return { success: id ? "Treatment saved." : "Treatment added.", id: createdId };
 }
 
 export async function deleteService(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -391,6 +467,7 @@ async function syncStylistServices(stylistId: string, formData: FormData) {
 
 export async function saveStylist(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const name = text(formData, "name");
   const role = text(formData, "role");
@@ -428,13 +505,14 @@ export async function saveStylist(_: ActionState, formData: FormData): Promise<A
         },
       });
       await syncStylistServices(stylist.id, formData);
+      createdId = stylist.id;
     }
   } catch (error) {
     return fail(error, "Could not save that stylist.");
   }
 
   revalidateSite();
-  return { success: id ? "Stylist saved." : "Stylist added." };
+  return { success: id ? "Stylist saved." : "Stylist added.", id: createdId };
 }
 
 export async function deleteStylist(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -463,6 +541,7 @@ export async function deleteStylist(_: ActionState, formData: FormData): Promise
 
 export async function saveWorkingHour(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const stylistId = text(formData, "stylistId");
   const dayOfWeek = int(formData, "dayOfWeek", -1);
@@ -485,9 +564,9 @@ export async function saveWorkingHour(_: ActionState, formData: FormData): Promi
       });
     } else {
       if (!stylistId) return { error: "Missing stylist." };
-      await prisma.workingHour.create({
+      createdId = (await prisma.workingHour.create({
         data: { stylistId, dayOfWeek, startMin, endMin, mediaUrls: attachedMedia },
-      });
+      })).id;
     }
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -497,7 +576,7 @@ export async function saveWorkingHour(_: ActionState, formData: FormData): Promi
   }
 
   revalidateSite();
-  return { success: "Hours saved." };
+  return { success: "Hours saved.", id: createdId };
 }
 
 export async function saveStylistServiceMedia(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -530,6 +609,7 @@ export async function deleteWorkingHour(_: ActionState, formData: FormData): Pro
 
 export async function saveGalleryItem(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const caption = text(formData, "caption");
   const image = text(formData, "image");
@@ -547,7 +627,7 @@ export async function saveGalleryItem(_: ActionState, formData: FormData): Promi
       data: { caption, image, mediaUrls: attachedMedia, sortOrder, published },
     });
   } else {
-    await prisma.galleryItem.create({
+    createdId = (await prisma.galleryItem.create({
       data: {
         caption,
         image,
@@ -555,11 +635,11 @@ export async function saveGalleryItem(_: ActionState, formData: FormData): Promi
         published,
         sortOrder: sortOrder || (await nextSort(prisma.galleryItem)),
       },
-    });
+    })).id;
   }
 
   revalidateSite();
-  return { success: id ? "Look saved." : "Look added." };
+  return { success: id ? "Look saved." : "Look added.", id: createdId };
 }
 
 export async function deleteGalleryItem(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -573,6 +653,7 @@ export async function deleteGalleryItem(_: ActionState, formData: FormData): Pro
 
 export async function saveReview(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const guestName = text(formData, "guestName");
   const service = text(formData, "service");
@@ -595,7 +676,7 @@ export async function saveReview(_: ActionState, formData: FormData): Promise<Ac
       data: { guestName, service, quote, rating, mediaUrls: attachedMedia, sortOrder, published },
     });
   } else {
-    await prisma.review.create({
+    createdId = (await prisma.review.create({
       data: {
         guestName,
         service,
@@ -605,11 +686,11 @@ export async function saveReview(_: ActionState, formData: FormData): Promise<Ac
         published,
         sortOrder: sortOrder || (await nextSort(prisma.review)),
       },
-    });
+    })).id;
   }
 
   revalidateSite();
-  return { success: id ? "Review saved." : "Review added." };
+  return { success: id ? "Review saved." : "Review added.", id: createdId };
 }
 
 export async function deleteReview(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -623,6 +704,7 @@ export async function deleteReview(_: ActionState, formData: FormData): Promise<
 
 export async function saveOffer(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const title = text(formData, "title");
   const detail = text(formData, "detail");
@@ -646,13 +728,13 @@ export async function saveOffer(_: ActionState, formData: FormData): Promise<Act
       data: { title, detail, cta, mediaUrls: attachedMedia, eyebrow: eyebrow || null, expiresAt, active },
     });
   } else {
-    await prisma.offer.create({
+    createdId = (await prisma.offer.create({
       data: { title, detail, cta, mediaUrls: attachedMedia, eyebrow: eyebrow || null, expiresAt, active },
-    });
+    })).id;
   }
 
   revalidateSite();
-  return { success: id ? "Offer saved." : "Offer added." };
+  return { success: id ? "Offer saved." : "Offer added.", id: createdId };
 }
 
 export async function deleteOffer(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -666,6 +748,7 @@ export async function deleteOffer(_: ActionState, formData: FormData): Promise<A
 
 export async function saveSignature(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const name = text(formData, "name");
   const story = text(formData, "story");
@@ -702,7 +785,7 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
       data: { name, story, image, mediaUrls: attachedMedia, categorySlug, treatmentName, fromPrice, sortOrder, inclusions },
     });
   } else {
-    await prisma.signature.create({
+    createdId = (await prisma.signature.create({
       data: {
         name,
         story,
@@ -714,11 +797,11 @@ export async function saveSignature(_: ActionState, formData: FormData): Promise
         inclusions,
         sortOrder: sortOrder || (await nextSort(prisma.signature)),
       },
-    });
+    })).id;
   }
 
   revalidateSite();
-  return { success: id ? "Signature saved." : "Signature added." };
+  return { success: id ? "Signature saved." : "Signature added.", id: createdId };
 }
 
 export async function deleteSignature(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -732,6 +815,7 @@ export async function deleteSignature(_: ActionState, formData: FormData): Promi
 
 export async function saveInstagramPost(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const image = text(formData, "image");
   const alt = text(formData, "alt");
@@ -748,13 +832,13 @@ export async function saveInstagramPost(_: ActionState, formData: FormData): Pro
       data: { image, alt, mediaUrls: attachedMedia, sortOrder },
     });
   } else {
-    await prisma.instagramPost.create({
+    createdId = (await prisma.instagramPost.create({
       data: { image, alt, mediaUrls: attachedMedia, sortOrder: sortOrder || (await nextSort(prisma.instagramPost)) },
-    });
+    })).id;
   }
 
   revalidateSite();
-  return { success: id ? "Post saved." : "Post added." };
+  return { success: id ? "Post saved." : "Post added.", id: createdId };
 }
 
 export async function deleteInstagramPost(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -845,6 +929,7 @@ export async function updateSection(_: ActionState, formData: FormData): Promise
 
 export async function saveHeroSlide(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const image = text(formData, "image");
   const alt = text(formData, "alt");
@@ -858,12 +943,12 @@ export async function saveHeroSlide(_: ActionState, formData: FormData): Promise
   if (id) {
     await prisma.heroSlide.update({ where: { id }, data: { image, alt, mediaUrls: attachedMedia, sortOrder, published } });
   } else {
-    await prisma.heroSlide.create({
+    createdId = (await prisma.heroSlide.create({
       data: { image, alt, mediaUrls: attachedMedia, published, sortOrder: sortOrder || (await nextSort(prisma.heroSlide)) },
-    });
+    })).id;
   }
   revalidateSite();
-  return { success: id ? "Slide saved." : "Slide added." };
+  return { success: id ? "Slide saved." : "Slide added.", id: createdId };
 }
 
 export async function deleteHeroSlide(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -877,6 +962,7 @@ export async function deleteHeroSlide(_: ActionState, formData: FormData): Promi
 
 export async function saveTrustItem(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const value = text(formData, "value");
   const suffix = text(formData, "suffix");
@@ -892,12 +978,12 @@ export async function saveTrustItem(_: ActionState, formData: FormData): Promise
   if (id) {
     await prisma.trustItem.update({ where: { id }, data: { value, suffix, label, sortOrder, published } });
   } else {
-    await prisma.trustItem.create({
+    createdId = (await prisma.trustItem.create({
       data: { value, suffix, label, published, sortOrder: sortOrder || (await nextSort(prisma.trustItem)) },
-    });
+    })).id;
   }
   revalidateSite();
-  return { success: id ? "Fact saved." : "Fact added." };
+  return { success: id ? "Fact saved." : "Fact added.", id: createdId };
 }
 
 export async function deleteTrustItem(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -911,26 +997,30 @@ export async function deleteTrustItem(_: ActionState, formData: FormData): Promi
 
 export async function saveRitualPick(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const serviceId = text(formData, "serviceId");
   const note = text(formData, "note");
   const detail = text(formData, "detail");
+  const priceText = text(formData, "price").replace(/[^\d]/g, "");
+  const price = priceText ? Number(priceText) : null;
   const sortOrder = int(formData, "sortOrder");
   const published = bool(formData, "published");
 
   if (!serviceId || !note || !detail) return { error: "Treatment, short note, and description are required." };
+  if (price !== null && (!Number.isSafeInteger(price) || price > 10_000_000)) return { error: "Enter the price in rupees, e.g. 2800." };
   const service = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true } });
   if (!service) return { error: "That treatment no longer exists." };
 
   if (id) {
-    await prisma.ritualPick.update({ where: { id }, data: { serviceId, note, detail, sortOrder, published } });
+    await prisma.ritualPick.update({ where: { id }, data: { serviceId, note, detail, price, sortOrder, published } });
   } else {
-    await prisma.ritualPick.create({
-      data: { serviceId, note, detail, published, sortOrder: sortOrder || (await nextSort(prisma.ritualPick)) },
-    });
+    createdId = (await prisma.ritualPick.create({
+      data: { serviceId, note, detail, price, published, sortOrder: sortOrder || (await nextSort(prisma.ritualPick)) },
+    })).id;
   }
   revalidateSite();
-  return { success: id ? "Ritual saved." : "Ritual added." };
+  return { success: id ? "Ritual saved." : "Ritual added.", id: createdId };
 }
 
 export async function deleteRitualPick(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -960,6 +1050,7 @@ function safeHref(value: string) {
 
 export async function saveNavLink(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const location = text(formData, "location") as NavLocation;
   const label = text(formData, "label");
@@ -979,16 +1070,16 @@ export async function saveNavLink(_: ActionState, formData: FormData): Promise<A
       await prisma.navLink.update({ where: { id }, data: { location, label, href, newTab, opensBooking, published, sortOrder } });
     } else {
       const count = await prisma.navLink.count({ where: { location } });
-      await prisma.navLink.create({
+      createdId = (await prisma.navLink.create({
         data: { location, label, href, newTab, opensBooking, published, sortOrder: sortOrder || count + 1 },
-      });
+      })).id;
     }
   } catch (error) {
     return fail(error, "Could not save the link.");
   }
 
   revalidateLayout();
-  return { success: id ? "Link saved." : "Link added." };
+  return { success: id ? "Link saved." : "Link added.", id: createdId };
 }
 
 export async function deleteNavLink(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -1002,6 +1093,7 @@ export async function deleteNavLink(_: ActionState, formData: FormData): Promise
 
 export async function saveSocialLink(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const platform = text(formData, "platform");
   const href = safeHref(text(formData, "href"));
@@ -1017,16 +1109,16 @@ export async function saveSocialLink(_: ActionState, formData: FormData): Promis
     if (id) {
       await prisma.socialLink.update({ where: { id }, data: { platform, label, href, published, sortOrder } });
     } else {
-      await prisma.socialLink.create({
+      createdId = (await prisma.socialLink.create({
         data: { platform, label, href, published, sortOrder: sortOrder || (await nextSort(prisma.socialLink)) },
-      });
+      })).id;
     }
   } catch (error) {
     return fail(error, "Could not save the social link.");
   }
 
   revalidateLayout();
-  return { success: id ? "Social link saved." : "Social link added." };
+  return { success: id ? "Social link saved." : "Social link added.", id: createdId };
 }
 
 export async function deleteSocialLink(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -1118,6 +1210,7 @@ export async function updateDeskAccount(_: ActionState, formData: FormData): Pro
 
 export async function saveAdminUser(_: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
+  let createdId: string | undefined;
   const id = text(formData, "id");
   const name = text(formData, "name");
   const email = text(formData, "email").toLowerCase();
@@ -1152,9 +1245,9 @@ export async function saveAdminUser(_: ActionState, formData: FormData): Promise
         },
       });
     } else {
-      await prisma.adminUser.create({
+      createdId = (await prisma.adminUser.create({
         data: { name, email, mediaUrls: attachedMedia, passwordHash: await bcrypt.hash(password, 12) },
-      });
+      })).id;
     }
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
@@ -1164,7 +1257,7 @@ export async function saveAdminUser(_: ActionState, formData: FormData): Promise
   }
 
   revalidateSite();
-  return { success: id ? "Desk account saved." : "Desk account created." };
+  return { success: id ? "Desk account saved." : "Desk account created.", id: createdId };
 }
 
 export async function deleteAdminUser(_: ActionState, formData: FormData): Promise<ActionState> {

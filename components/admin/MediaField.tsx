@@ -14,6 +14,20 @@ type MediaFieldProps = {
   primaryRequired?: boolean;
 };
 
+// The Blob client hides the upload route's reason behind a generic message; ask the route for it.
+async function describeUploadError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Media upload failed.";
+  if (!/client token/i.test(message)) return message;
+  try {
+    const response = await fetch("/api/media/upload", { cache: "no-store" });
+    const body = (await response.json()) as { error?: string };
+    if (body.error) return body.error;
+  } catch {
+    // Fall through to the generic message.
+  }
+  return "The upload couldn't be authorized. Check your connection and try again.";
+}
+
 export function MediaField({
   name = "mediaUrls",
   label = "Media files",
@@ -24,7 +38,7 @@ export function MediaField({
   primaryRequired = false,
 }: MediaFieldProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverFields = primaryFields ?? (primaryName ? [{ name: primaryName, label: "Cover media URL", initialValue: initialPrimary, required: primaryRequired }] : []);
+  const coverFields = primaryFields ?? (primaryName ? [{ name: primaryName, label: "Cover image", initialValue: initialPrimary, required: primaryRequired }] : []);
   const [primaryValues, setPrimaryValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(coverFields.map((field) => [field.name, field.initialValue])),
   );
@@ -70,7 +84,7 @@ export function MediaField({
       }
       setMessage(`${added.length} file${added.length === 1 ? "" : "s"} uploaded.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Media upload failed.");
+      setMessage(await describeUploadError(error));
     } finally {
       setBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

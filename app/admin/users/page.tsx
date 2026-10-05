@@ -1,16 +1,38 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { ActionForm } from "@/components/admin/ActionForm";
-import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { FormActions } from "@/components/admin/AdminList";
+import { editorKeys, MasterDetail, resolveSelection, type MDGroup } from "@/components/admin/MasterDetail";
 import { MediaField } from "@/components/admin/MediaField";
 import { deleteAdminUser, saveAdminUser } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Desk accounts" };
 
-export default async function AdminUsersPage() {
-  const session = await auth();
-  const users = await prisma.adminUser.findMany({ orderBy: { name: "asc" } });
+const BASE = "/admin/users";
+
+export default async function AdminUsersPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+  const params = await searchParams;
+  const [session, users] = await Promise.all([auth(), prisma.adminUser.findMany({ orderBy: { name: "asc" } })]);
+  const currentId = session?.user?.id;
+
+  const groups: MDGroup[] = [
+    {
+      key: "accounts",
+      label: "Accounts",
+      noun: "desk account",
+      items: users.map((user) => ({
+        id: user.id,
+        title: user.name,
+        subtitle: user.email,
+        meta: user.id === currentId ? "You" : undefined,
+      })),
+    },
+  ];
+  const selection = resolveSelection(groups, params);
+  const user = users.find((entry) => entry.id === selection.item?.id);
+  const isSelf = user?.id === currentId;
+  const { key, deleteFormId } = editorKeys(selection);
 
   return (
     <main>
@@ -19,55 +41,46 @@ export default async function AdminUsersPage() {
         <h1>Desk accounts</h1>
         <p className="muted">Create and manage staff sign-ins. Passwords must be at least 12 characters.</p>
       </section>
-
-      <ActionForm action={saveAdminUser}>
-        <h2>Add desk account</h2>
-        <MediaField label="Profile media" />
-        <label>
-          Name
-          <input name="name" required />
-        </label>
-        <label>
-          Email
-          <input type="email" name="email" autoComplete="off" required />
-        </label>
-        <label>
-          Temporary password
-          <input type="password" name="password" autoComplete="new-password" minLength={12} required />
-        </label>
-        <button className="btn btn-primary" type="submit">Create account</button>
-      </ActionForm>
-
-      <h2>Existing accounts</h2>
-      {users.map((user) => (
-        <section className="price-block" key={user.id}>
-          <ActionForm action={saveAdminUser}>
-            <input type="hidden" name="id" value={user.id} />
-            <MediaField initialMediaUrls={user.mediaUrls} label="Profile media" />
+      <MasterDetail basePath={BASE} groups={groups} selection={selection}>
+        <ActionForm key={key} action={saveAdminUser} createdHref={`${BASE}?edit=`}>
+          {user ? <input type="hidden" name="id" value={user.id} /> : null}
+          <div className="admin-fields">
             <label>
               Name
-              <input name="name" defaultValue={user.name} required />
+              <input name="name" defaultValue={user?.name} required />
             </label>
             <label>
               Email
-              <input type="email" name="email" defaultValue={user.email} required />
+              <input type="email" name="email" defaultValue={user?.email} autoComplete="off" required />
             </label>
-            <label>
-              New password <span className="muted">Leave blank to keep the existing password.</span>
-              <input type="password" name="password" autoComplete="new-password" minLength={12} />
+            <label className="is-wide">
+              {user ? "New password" : "Temporary password"}
+              <input
+                type="password"
+                name="password"
+                autoComplete="new-password"
+                minLength={12}
+                required={!user}
+                placeholder={user ? "Leave blank to keep the current password" : "At least 12 characters"}
+              />
             </label>
-            <button className="btn btn-line" type="submit">Save account</button>
+          </div>
+          <MediaField initialMediaUrls={user?.mediaUrls} label="Profile media" />
+          {isSelf ? (
+            <p className="admin-note">This is your signed-in account, so it can’t be deleted from this session.</p>
+          ) : null}
+          <FormActions
+            saveLabel={user ? "Save account" : "Create account"}
+            deleteFormId={user && !isSelf ? deleteFormId : undefined}
+            deleteMessage={`Delete desk account ${user?.email ?? ""}?`}
+          />
+        </ActionForm>
+        {user && !isSelf ? (
+          <ActionForm key={`delete-${selection.group.key}`} id={deleteFormId} action={deleteAdminUser} className="admin-delete-form" successHref={BASE}>
+            <input type="hidden" name="id" value={user.id} />
           </ActionForm>
-          {user.id === session?.user?.id ? (
-            <p className="muted">This is your current signed-in account, so it cannot be deleted from this session.</p>
-          ) : (
-            <ActionForm action={deleteAdminUser}>
-              <input type="hidden" name="id" value={user.id} />
-              <ConfirmSubmit label="Delete account" message={`Delete desk account ${user.email}?`} />
-            </ActionForm>
-          )}
-        </section>
-      ))}
+        ) : null}
+      </MasterDetail>
     </main>
   );
 }

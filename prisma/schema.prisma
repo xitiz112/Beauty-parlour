@@ -91,8 +91,9 @@ model Appointment {
   mediaUrls String[]          @default([])
   serviceId String
   service   Service           @relation(fields: [serviceId], references: [id])
-  stylistId String
-  stylist   Stylist           @relation(fields: [stylistId], references: [id])
+  /// Null for website requests with "any stylist"; the desk assigns one before confirming.
+  stylistId String?
+  stylist   Stylist?          @relation(fields: [stylistId], references: [id], onDelete: Restrict)
   startsAt  DateTime
   endsAt    DateTime
   status    AppointmentStatus @default(pending)
@@ -268,6 +269,8 @@ model RitualPick {
   service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   note      String
   detail    String
+  /// Price shown for this ritual (Rs.); null uses the treatment's menu price.
+  price     Int?
   sortOrder Int     @default(0)
   published Boolean @default(true)
 }

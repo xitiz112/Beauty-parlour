@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
+import { CircleCheck } from "lucide-react";
+import { requestAppointment, type ActionState } from "@/lib/actions";
 
 type ContactCategory = {
   id: string;
@@ -10,6 +12,11 @@ type ContactCategory = {
 };
 
 type ContactStylist = Pick<import("@prisma/client").Stylist, "id" | "name" | "role">;
+
+// Today in Kathmandu, as YYYY-MM-DD, for the date picker's minimum.
+function todayInKathmandu() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(new Date());
+}
 
 export function ContactBookingForm({
   categories,
@@ -26,32 +33,45 @@ export function ContactBookingForm({
   const [categoryId, setCategoryId] = useState(startingCategory?.id || "");
   const startingService = startingCategory?.services.find((item) => item.name === prefill?.treatment);
   const [serviceId, setServiceId] = useState(startingService?.id || startingCategory?.services[0]?.id || "");
-  const [stylistName, setStylistName] = useState(prefill?.stylist || "");
-  const [submitted, setSubmitted] = useState(false);
+  // Team pages link here with ?stylist=<name>.
+  const [stylistId, setStylistId] = useState(stylists.find((item) => item.name === prefill?.stylist)?.id || "");
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(requestAppointment, {});
+  const [submitted, setSubmitted] = useState<{ name: string; service: string; date: string; time: string } | null>(null);
   const category = categories.find((item) => item.id === categoryId) || categories[0];
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const service = category?.services.find((item) => item.id === String(form.get("serviceId")));
-    const message = [
-      "Hello Liora Beauty Studio, I’d like to request an appointment.",
-      `Name: ${String(form.get("name") || "").trim()}`,
-      `Phone: ${String(form.get("phone") || "").trim()}`,
-      `Service: ${service?.name || "Not selected"}`,
-      `Preferred date: ${String(form.get("date") || "Flexible")}`,
-      `Preferred stylist: ${String(form.get("stylist") || "Any available stylist")}`,
-      form.get("notes") ? `Notes: ${String(form.get("notes"))}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    window.open(`${whatsappHref}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
-    setSubmitted(true);
+  if (state.success && submitted) {
+    const message = `Hello, I just requested an appointment on your website: ${submitted.service} on ${submitted.date} at ${submitted.time} (${submitted.name}).`;
+    return (
+      <div className="contact-booking-form contact-form-done" role="status">
+        <CircleCheck className="contact-form-done-icon" aria-hidden="true" />
+        <h3>Request received</h3>
+        <p>
+          Thank you, {submitted.name}. We’ve saved your request for <strong>{submitted.service}</strong> on{" "}
+          <strong>{submitted.date}</strong> at <strong>{submitted.time}</strong>. Our team will call or message you to
+          confirm.
+        </p>
+        <p className="contact-form-note">No time slot is reserved until we confirm.</p>
+        <a className="btn btn-line" href={`${whatsappHref}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
+          Message us on WhatsApp
+        </a>
+      </div>
+    );
   }
 
   return (
-    <form className="contact-booking-form" onSubmit={handleSubmit}>
+    <form
+      className="contact-booking-form"
+      action={formAction}
+      onSubmit={(event) => {
+        const form = new FormData(event.currentTarget);
+        setSubmitted({
+          name: String(form.get("name") || "").trim(),
+          service: category?.services.find((item) => item.id === form.get("serviceId"))?.name || "",
+          date: String(form.get("date") || ""),
+          time: String(form.get("time") || ""),
+        });
+      }}
+    >
       <div className="contact-form-heading">
         <p className="eyebrow">A little time for you</p>
         <h3>Request an appointment</h3>
@@ -60,11 +80,11 @@ export function ContactBookingForm({
       <div className="contact-form-grid">
         <label>
           Your name
-          <input name="name" autoComplete="name" placeholder="Full name" required />
+          <input name="name" autoComplete="name" placeholder="Full name" maxLength={80} required />
         </label>
         <label>
           Phone number
-          <input name="phone" type="tel" autoComplete="tel" placeholder="+977" required />
+          <input name="phone" type="tel" autoComplete="tel" placeholder="+977" maxLength={20} required />
         </label>
         <label>
           Service
@@ -96,14 +116,18 @@ export function ContactBookingForm({
         </label>
         <label>
           Preferred date
-          <input name="date" type="date" min={new Date().toISOString().slice(0, 10)} />
+          <input name="date" type="date" min={todayInKathmandu()} required />
         </label>
         <label>
+          Preferred time
+          <input name="time" type="time" min="09:00" max="19:00" step={1800} defaultValue="11:00" required />
+        </label>
+        <label className="contact-form-notes">
           Preferred stylist
-          <select name="stylist" value={stylistName} onChange={(event) => setStylistName(event.target.value)}>
+          <select name="stylistId" value={stylistId} onChange={(event) => setStylistId(event.target.value)}>
             <option value="">Any available stylist</option>
             {stylists.map((stylist) => (
-              <option key={stylist.id} value={stylist.name}>
+              <option key={stylist.id} value={stylist.id}>
                 {stylist.name} — {stylist.role}
               </option>
             ))}
@@ -111,14 +135,25 @@ export function ContactBookingForm({
         </label>
         <label className="contact-form-notes">
           Notes <span className="muted">(optional)</span>
-          <textarea name="notes" rows={2} placeholder="Anything you’d like us to know?" />
+          <textarea name="notes" rows={2} maxLength={1000} placeholder="Anything you’d like us to know?" />
+        </label>
+        {/* Spam trap: hidden from people, filled in by bots. */}
+        <label className="contact-form-trap" aria-hidden="true">
+          Website
+          <input name="website" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      {submitted ? <p className="contact-form-confirmation" role="status">Your request is ready in WhatsApp. Send the message to confirm with our team.</p> : null}
-      <button className="btn btn-primary" type="submit">
-        Send appointment request
+      {state.error ? <p className="field-error" role="alert">{state.error}</p> : null}
+      <button className="btn btn-primary" type="submit" disabled={pending}>
+        {pending ? "Sending…" : "Send appointment request"}
       </button>
-      <p className="contact-form-note">No time slot is reserved until our team confirms your request.</p>
+      <p className="contact-form-note">
+        No time slot is reserved until our team confirms your request. Prefer to chat?{" "}
+        <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+          WhatsApp us
+        </a>
+        .
+      </p>
     </form>
   );
 }
