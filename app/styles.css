@@ -2944,7 +2944,7 @@ textarea {
   background: #241f1c;
   color: #93877d;
   padding: 2.4rem 0 1.8rem;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem + 1px);
 }
 
 .footer-brand {
@@ -3622,6 +3622,54 @@ html:has(.booking-modal[open]) {
 .whatsapp-float:hover .whatsapp-float-label,
 .whatsapp-float:focus-visible .whatsapp-float-label {
   max-width: 8rem;
+}
+
+/* Back to top: top of the right-hand stack, above Call (2 × 56px buttons + 12px gaps), centred on their 56px column. */
+.back-to-top {
+  position: fixed;
+  right: calc(max(1.1rem, env(safe-area-inset-right)) + 4px);
+  bottom: calc(max(1.1rem, env(safe-area-inset-bottom)) + 136px);
+  z-index: 30;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid var(--sand);
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.92);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(34, 28, 25, 0.16);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.back-to-top.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.back-to-top:hover,
+.back-to-top:focus-visible {
+  background: var(--blush);
+  border-color: var(--blush);
+  color: var(--white);
+}
+
+.back-to-top svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .back-to-top {
+    transform: none;
+    transition: opacity 0.2s ease;
+  }
 }
 
 /* Floating call button, stacked above the WhatsApp button (56px + 12px gap). */
