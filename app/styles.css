@@ -2800,11 +2800,12 @@ textarea {
 
 .contact-form-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.8rem;
 }
 
 .contact-booking-form label {
+  min-width: 0;
   gap: 0.25rem;
   font-size: calc(0.76rem + 2px);
 }
@@ -2812,6 +2813,9 @@ textarea {
 .contact-booking-form input,
 .contact-booking-form select,
 .contact-booking-form textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 42px;
   padding: 0.55rem 0.7rem;
   border-radius: 8px;
@@ -3486,7 +3490,7 @@ html:has(.booking-modal[open]) {
   border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .booking-modal::backdrop {
@@ -3497,7 +3501,9 @@ html:has(.booking-modal[open]) {
 .booking-modal-panel {
   position: relative;
   max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
   overflow-y: auto;
+  touch-action: pan-y;
   border-radius: var(--radius-sm);
   overscroll-behavior: contain;
 }
